@@ -3583,7 +3583,9 @@ function render(){
         yearFill:_hex(CH),
         monthFillA:_hex(bw(CH,0.28)), monthFillB:_hex(bw(CH,0.40)),
         qFillA:_hex(bw(CH,0.18)), qFillB:_hex(bw(CH,0.30)),
-        line:_hex(bw(CH,0.55))
+        line:_hex(bw(CH,0.55)),
+        lhdr:_hex(bw(CH,0.06)),    // left-column header background
+        sep:_hex(bw(CH,0.65))      // vertical separator colour
       },
       months: monthPeriods.map(p=>({x:p.x, w:p.w, label:p.label})),
       years: Object.values(yrG2),
@@ -3592,7 +3594,8 @@ function render(){
         color:t._barColor||'#2a7a6f',
         isS:!!t._lvIsS, isB:!!t._lvIsB,
         name:t.tarea||'', avance:+t.avance||0,
-        labelIndent:t._lblIndent||6
+        labelIndent:t._lblIndent||6,
+        lbg: t._lvIsS ? _hex(bw(CST,0.88)) : t._lvIsB ? _hex(bw(CB,0.94)) : 'FFFFFF'
       })),
       hitos: hitoTasks.filter(t=>dmy(t.inicio)).map(t=>{
         const sd=dmy(t.inicio); const hx=LW+Math.max(0,daysB(cs,sd))*DPX;
@@ -3751,13 +3754,26 @@ async function dlPPTX(){
     // (las divisiones de trimestre se omiten en esta prueba salvo color de banda)
   }
 
+  // ── Columna izquierda de etiquetas ──
+  // Bloque de cabecera (arriba a la izquierda, alineado con las bandas de año/mes)
+  slide.addShape(rect,{x:0,y:IN(R.TH),w:IN(LWx),h:IN(R.HDR),fill:{color:HD.lhdr||'EDEAE4'},line:{type:'none'}});
+  // Fondo de fila por nivel (debajo de la cabecera)
+  R.bars.forEach(b=>{
+    slide.addShape(rect,{x:0,y:IN(b.y),w:IN(LWx),h:IN(b.h),fill:{color:b.lbg||'FFFFFF'},line:{type:'none'}});
+  });
+  // Separador vertical entre columna de etiquetas y área del plan
+  slide.addShape(line,{x:IN(LWx),y:IN(R.TH),w:0,h:IN(R.LGH-R.TH),line:{color:HD.sep||'CCCCCC',width:1}});
+
   // ── Barras + etiquetas a la izquierda (colores por nivel) ──
   R.bars.forEach(b=>{
     const base=_hex(b.color);
     // tono por nivel: stream = base, bloque = +18% claro, tarea = +34% claro
     const col = b.isS ? base : b.isB ? _lighten(base,0.18) : _lighten(base,0.34);
     // etiqueta en la columna izquierda
-    if(b.name) slide.addText(b.name,{x:IN(b.labelIndent),y:IN(b.y),w:IN(LWx-b.labelIndent-4),h:IN(b.h),fontSize:PT(Math.min(b.h*0.5,13)),align:'left',valign:'middle',bold:b.isS||b.isB,color:b.isS?'1A5C53':(b.isB?'2A7A6F':'444444'),margin:0,wrap:false,fit:'shrink'});
+    const lbgHex=b.lbg||'FFFFFF';
+    const lblCol=b.isS?_contrast(_darken(lbgHex,0.0)):b.isB?_contrast(lbgHex):'444444';
+    const lclr=b.isS?_hex(R.hdr.yearFill||'1A5C53'):b.isB?'2A7A6F':'444444';
+    if(b.name) slide.addText(b.name,{x:IN(b.labelIndent),y:IN(b.y),w:IN(LWx-b.labelIndent-4),h:IN(b.h),fontSize:PT(Math.min(b.h*0.5,13)),align:'left',valign:'middle',bold:b.isS||b.isB,color:lclr,margin:0,wrap:false,fit:'shrink'});
     // barra
     slide.addShape(rr,{x:IN(b.x),y:IN(b.y),w:IN(Math.max(b.w,1)),h:IN(b.h),rectRadius:IN(Math.min(b.h/2,3)),fill:{color:col},line:{type:'none'}});
     // porción de avance (tono más oscuro a la izquierda)

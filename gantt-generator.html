@@ -3673,6 +3673,16 @@ function _hex(c){
   if(m){ const p=m[1].split(',').map(s=>parseFloat(s)); return p.slice(0,3).map(n=>('0'+Math.round(n).toString(16)).slice(-2)).join('').toUpperCase(); }
   return '888888';
 }
+function _lighten(c,amt){
+  const h=_hex(c); let r=parseInt(h.slice(0,2),16),g=parseInt(h.slice(2,4),16),b=parseInt(h.slice(4,6),16);
+  r=Math.round(r+(255-r)*amt); g=Math.round(g+(255-g)*amt); b=Math.round(b+(255-b)*amt);
+  return [r,g,b].map(n=>('0'+n.toString(16)).slice(-2)).join('').toUpperCase();
+}
+function _darken(c,amt){
+  const h=_hex(c); let r=parseInt(h.slice(0,2),16),g=parseInt(h.slice(2,4),16),b=parseInt(h.slice(4,6),16);
+  r=Math.round(r*(1-amt)); g=Math.round(g*(1-amt)); b=Math.round(b*(1-amt));
+  return [r,g,b].map(n=>('0'+n.toString(16)).slice(-2)).join('').toUpperCase();
+}
 
 async function dlPPTX(){
   if(!LAST_RENDER){ st('Genera el plan primero.','err'); return; }
@@ -3692,50 +3702,66 @@ async function dlPPTX(){
   slide.background={color:_hex(R.bg)};
   const rect=pptx.ShapeType.rect, rr=pptx.ShapeType.roundRect, diamond=pptx.ShapeType.diamond, line=pptx.ShapeType.line;
   const LWx=R.LW;
+  const planY0=R.TP, planY1=R.TP+R.NR*R.RH, planX1=R.LGW;
+  // helper para segmentos de línea (codo en L de dependencias)
+  const lineSeg=(x1,y1,x2,y2,arrow,color,wid)=>{
+    const x=Math.min(x1,x2), y=Math.min(y1,y2);
+    slide.addShape(line,{x:IN(x),y:IN(y),w:IN(Math.abs(x2-x1)),h:IN(Math.abs(y2-y1)),
+      line:{color:color||'555555',width:wid||1, endArrowType:arrow?'triangle':'none'},
+      flipH:x2<x1, flipV:y2<y1});
+  };
 
-  // Banda de años
+  // ── CUADRÍCULA (debajo de las barras) ──
+  // Líneas verticales de mes
+  R.months.forEach(m=>{ lineSeg(LWx+m.x, planY0, LWx+m.x, planY1, false, 'E2DDD4', 0.5); });
+  lineSeg(planX1, planY0, planX1, planY1, false, 'E2DDD4', 0.5); // cierre derecho
+  // Separadores de fila
+  for(let i=0;i<=R.NR;i++){ const yy=R.TP+i*R.RH; lineSeg(LWx, yy, planX1, yy, false, 'F0ECE5', 0.5); }
+
+  // ── Banda de años ──
   R.years.forEach(y=>{
     const x=IN(LWx+y.x0), w=IN(y.x1-y.x0);
-    slide.addShape(rect,{x,y:IN(R.TH),w,h:IN(R.YH),fill:{color:'D8D4CB'},line:{color:'FFFFFF',width:0.5}});
-    if(R.YH>3) slide.addText(y.label,{x,y:IN(R.TH),w,h:IN(R.YH),fontSize:PT(R.YH*0.62),align:'center',valign:'middle',bold:true,color:'444444',margin:0});
+    slide.addShape(rect,{x,y:IN(R.TH),w,h:IN(R.YH),fill:{color:'D8D4CB'},line:{color:'FFFFFF',width:1}});
+    if(R.YH>3) slide.addText(y.label,{x,y:IN(R.TH),w,h:IN(R.YH),fontSize:PT(R.YH*0.6),align:'center',valign:'middle',bold:true,color:'3A3A3A',margin:0,wrap:false,fit:'shrink'});
   });
-  // Banda de meses
+  // ── Banda de meses ──
   const monY=R.TH+R.YH+R.QH;
   R.months.forEach(m=>{
     const x=IN(LWx+m.x), w=IN(m.w);
-    slide.addShape(rect,{x,y:IN(monY),w,h:IN(R.PH),fill:{color:'EDEAE4'},line:{color:'FFFFFF',width:0.5}});
-    if(R.PH>3&&m.w>4) slide.addText(m.label,{x,y:IN(monY),w,h:IN(R.PH),fontSize:PT(R.PH*0.55),align:'center',valign:'middle',color:'666666',margin:0,fit:'shrink'});
+    slide.addShape(rect,{x,y:IN(monY),w,h:IN(R.PH),fill:{color:'EDEAE4'},line:{color:'FFFFFF',width:1}});
+    if(R.PH>3&&m.w>3) slide.addText(m.label,{x,y:IN(monY),w,h:IN(R.PH),fontSize:PT(Math.min(R.PH*0.55,m.w*0.7)),align:'center',valign:'middle',color:'5A5A5A',margin:0,wrap:false,fit:'shrink'});
   });
 
-  // Barras + etiquetas a la izquierda
+  // ── Barras + etiquetas a la izquierda (colores por nivel) ──
   R.bars.forEach(b=>{
-    const col=_hex(b.color);
+    const base=_hex(b.color);
+    // tono por nivel: stream = base, bloque = +18% claro, tarea = +34% claro
+    const col = b.isS ? base : b.isB ? _lighten(base,0.18) : _lighten(base,0.34);
     // etiqueta en la columna izquierda
-    if(b.name) slide.addText(b.name,{x:IN(b.labelIndent),y:IN(b.y),w:IN(LWx-b.labelIndent-4),h:IN(b.h),fontSize:PT(Math.min(b.h*0.5,13)),align:'left',valign:'middle',bold:b.isS||b.isB,color:b.isS?'1A5C53':(b.isB?'2A7A6F':'333333'),margin:0,fit:'shrink'});
+    if(b.name) slide.addText(b.name,{x:IN(b.labelIndent),y:IN(b.y),w:IN(LWx-b.labelIndent-4),h:IN(b.h),fontSize:PT(Math.min(b.h*0.5,13)),align:'left',valign:'middle',bold:b.isS||b.isB,color:b.isS?'1A5C53':(b.isB?'2A7A6F':'444444'),margin:0,wrap:false,fit:'shrink'});
     // barra
     slide.addShape(rr,{x:IN(b.x),y:IN(b.y),w:IN(Math.max(b.w,1)),h:IN(b.h),rectRadius:IN(Math.min(b.h/2,3)),fill:{color:col},line:{type:'none'}});
-    // overlay de avance
+    // porción de avance (tono más oscuro a la izquierda)
     if(b.avance>0&&b.avance<100&&!b.isS){
-      slide.addShape(rect,{x:IN(b.x),y:IN(b.y+b.h*0.65),w:IN(Math.max(b.w*b.avance/100,1)),h:IN(b.h*0.3),fill:{color:'FFFFFF',transparency:55},line:{type:'none'}});
+      slide.addShape(rr,{x:IN(b.x),y:IN(b.y),w:IN(Math.max(b.w*b.avance/100,1)),h:IN(b.h),rectRadius:IN(Math.min(b.h/2,3)),fill:{color:_darken(base,0.22)},line:{type:'none'}});
+      slide.addText(b.avance+'%',{x:IN(b.x),y:IN(b.y),w:IN(Math.max(b.w*b.avance/100,12)),h:IN(b.h),fontSize:PT(Math.min(b.h*0.42,10)),align:'center',valign:'middle',color:'FFFFFF',bold:true,margin:0,wrap:false});
     }
   });
 
-  // Hitos (rombo)
+  // ── Hitos (rombo) ──
   R.hitos.forEach(h=>{
     const sz=Math.min(R.RH*0.7,12);
-    let cy;
-    if(h.inline){ cy=R.TP+h.rowBefore*R.RH; } else { cy=R.TP+R.NR*R.RH+sz; }
+    let cy = h.inline ? (R.TP+h.rowBefore*R.RH) : (R.TP+R.NR*R.RH+sz);
     slide.addShape(diamond,{x:IN(h.hx-sz/2),y:IN(cy-sz/2),w:IN(sz),h:IN(sz),fill:{color:_hex(h.color)},line:{color:'FFFFFF',width:0.75}});
-    if(h.name) slide.addText(h.name,{x:IN(h.hx+sz/2+2),y:IN(cy-sz),w:IN(120),h:IN(sz*2),fontSize:PT(sz*0.7),align:'left',valign:'middle',color:'444444',margin:0});
+    if(h.name) slide.addText(h.name,{x:IN(h.hx+sz/2+2),y:IN(cy-sz),w:IN(120),h:IN(sz*2),fontSize:PT(sz*0.7),align:'left',valign:'middle',color:'444444',margin:0,wrap:false});
   });
 
-  // Dependencias (conector con flecha)
+  // ── Dependencias (codo en L con flecha) ──
   R.deps.forEach(d=>{
-    const x1=d.fromX, y1=d.fromY, x2=d.toX, y2=d.toY;
-    const x=Math.min(x1,x2), y=Math.min(y1,y2), w=Math.abs(x2-x1)||1, h=Math.abs(y2-y1)||1;
-    slide.addShape(line,{x:IN(x),y:IN(y),w:IN(w),h:IN(h),
-      line:{color:'555555',width:1,endArrowType:'triangle',beginArrowType:'none'},
-      flipH:x2<x1, flipV:y2<y1});
+    const elbowX=Math.max(d.fromX+8, d.toX-6);
+    lineSeg(d.fromX, d.fromY, elbowX, d.fromY, false, '555555', 1);   // salida horizontal
+    lineSeg(elbowX, d.fromY, elbowX, d.toY,   false, '555555', 1);    // tramo vertical
+    lineSeg(elbowX, d.toY,   d.toX,   d.toY,   true,  '555555', 1);    // entrada con flecha
   });
 
   try{

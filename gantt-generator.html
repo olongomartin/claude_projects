@@ -3725,7 +3725,11 @@ function getTipos(){ return TIPOS_BASE; }
 
 // ── DEP COMBO ──────────────────────────────────────────────────
 let _activeDepDd=null;
-function _closeDepDd(){ if(_activeDepDd){ _activeDepDd.remove(); _activeDepDd=null; } }
+let _depOutsideHandler=null;
+function _closeDepDd(){
+  if(_activeDepDd){ _activeDepDd.remove(); _activeDepDd=null; }
+  if(_depOutsideHandler){ document.removeEventListener('mousedown',_depOutsideHandler,true); _depOutsideHandler=null; }
+}
 
 function makeDepCombo(rowRef, selfIdx){
   const wrap=document.createElement('div'); wrap.className='dep-combo';
@@ -3743,21 +3747,28 @@ function makeDepCombo(rowRef, selfIdx){
     e.stopPropagation();
     if(_activeDepDd){ _closeDepDd(); return; }
     const dd=document.createElement('div'); dd.className='dep-dropdown'; _activeDepDd=dd;
+    dd.addEventListener('mousedown',ev=>ev.stopPropagation()); // clics dentro no cierran
+    dd.addEventListener('click',ev=>ev.stopPropagation());
     const curDeps=(rowRef.dep_str||'').split(',').map(s=>s.trim()).filter(Boolean);
     let added=0;
     teRows.forEach((r,j)=>{
       if(j===selfIdx || !r.tarea) return;
+      // Solo se puede depender de tareas/hitos reales, no de streams/bloques
+      if(r.tipo==='stream'||r.tipo==='bloque') return;
       const key=r.id||r.tarea;
       const item=document.createElement('div'); item.className='dep-dd-item';
       const ck=document.createElement('input'); ck.type='checkbox'; ck.checked=curDeps.includes(key);
+      ck.style.pointerEvents='none'; // la fila gestiona el toggle
       const lbl=document.createElement('span'); lbl.className='dep-dd-label'; lbl.textContent=r.tarea;
       const typ=document.createElement('span'); typ.className='dep-dd-type'; typ.textContent=r.id?`[${r.id}]`:'';
-      ck.addEventListener('change',()=>{
+      // clic en cualquier parte de la fila alterna la dependencia
+      item.addEventListener('click',()=>{
         const deps=(rowRef.dep_str||'').split(',').map(s=>s.trim()).filter(Boolean);
-        if(ck.checked){ if(!deps.includes(key)) deps.push(key); }
-        else { const ix=deps.indexOf(key); if(ix>=0) deps.splice(ix,1); }
+        const ix=deps.indexOf(key);
+        if(ix>=0) deps.splice(ix,1); else deps.push(key);
+        ck.checked=ix<0;
         rowRef.dep_str=deps.join(',');
-        teRows[selfIdx].dep_str=rowRef.dep_str;
+        if(teRows[selfIdx]) teRows[selfIdx].dep_str=rowRef.dep_str;
         refresh(); teSyncToRaw(); render();
       });
       item.appendChild(ck); item.appendChild(lbl); item.appendChild(typ);
@@ -3765,9 +3776,13 @@ function makeDepCombo(rowRef, selfIdx){
     });
     if(!added){ const em=document.createElement('div'); em.style.cssText='padding:8px;font-size:9px;color:var(--txm);'; em.textContent='Sin otras tareas'; dd.appendChild(em); }
     const rect=trigger.getBoundingClientRect();
-    dd.style.top=(rect.bottom+3)+'px'; dd.style.left=rect.left+'px';
+    // Posición: debajo del trigger; si no cabe, encima
+    let top=rect.bottom+3;
+    if(top+220>window.innerHeight) top=Math.max(6,rect.top-223);
+    dd.style.top=top+'px'; dd.style.left=Math.min(rect.left,window.innerWidth-200)+'px';
     document.body.appendChild(dd);
-    setTimeout(()=>document.addEventListener('click',_closeDepDd,{once:true}),0);
+    _depOutsideHandler=function(ev){ if(!dd.contains(ev.target)) _closeDepDd(); };
+    setTimeout(()=>document.addEventListener('mousedown',_depOutsideHandler,true),0);
   });
 
   wrap.appendChild(trigger);

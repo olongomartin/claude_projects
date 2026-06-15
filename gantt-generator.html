@@ -131,7 +131,7 @@ input[type=color]{width:100%;height:24px;border:1px solid var(--bd);border-radiu
 /* Task editor table */
 .te-wrap{overflow-x:auto;overflow-y:auto;flex:1 1 0;min-height:80px;margin-top:6px;border:1px solid var(--bd);border-radius:var(--r);}
 .te-table{width:100%;border-collapse:collapse;font-size:9.5px;table-layout:fixed;}
-.te-table th{background:var(--sf2);color:var(--txm);font-family:'IBM Plex Mono',monospace;font-size:8px;letter-spacing:.8px;text-transform:uppercase;padding:4px 5px;text-align:left;position:sticky;top:0;z-index:2;border-bottom:1px solid var(--bd);white-space:nowrap;}
+.te-table th{background:var(--sf2);color:var(--txm);font-family:'IBM Plex Mono',monospace;font-size:8px;letter-spacing:.8px;text-transform:uppercase;padding:4px 5px;text-align:left;position:sticky;top:0;z-index:2;border-bottom:1px solid var(--bd);white-space:nowrap;overflow:hidden;user-select:none;}
 .te-table td{padding:2px 3px;border-bottom:1px solid #f0ece5;vertical-align:middle;}
 .te-table tr:hover td{background:#f7f5f0;}
 .te-table tr.is-stream td{background:#e8f4f2;}
@@ -159,6 +159,22 @@ input[type=color]{width:100%;height:24px;border:1px solid var(--bd);border-radiu
 .te-table .td-del button{background:none;border:none;cursor:pointer;color:#ccc;font-size:13px;line-height:1;padding:0;}
 .te-table .td-del button:hover{color:#e74c3c;}
 .te-table .td-drag{width:14px;text-align:center;cursor:grab;color:#ccc;font-size:11px;padding:0 2px;}
+/* Column resize handle */
+.col-resize-handle{position:absolute;right:0;top:0;bottom:0;width:5px;cursor:col-resize;z-index:3;}
+.col-resize-handle:hover,.col-resize-handle.col-resize-active{background:var(--ac);opacity:.7;}
+/* Dep combo widget */
+.dep-combo{position:relative;width:100%;}
+.dep-combo-trigger{display:flex;align-items:center;flex-wrap:wrap;gap:2px;min-height:16px;width:100%;padding:1px 3px;border-radius:2px;cursor:pointer;font-size:8px;}
+.dep-combo-trigger:hover{background:var(--acl);}
+.dep-combo-trigger .dep-ph{color:var(--txm);font-size:8px;}
+.dep-chip{background:var(--ac);color:#fff;border-radius:2px;padding:0 4px;font-size:7.5px;line-height:14px;white-space:nowrap;max-width:52px;overflow:hidden;text-overflow:ellipsis;}
+.dep-dropdown{position:fixed;z-index:9999;background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);box-shadow:0 4px 16px rgba(0,0,0,.18);max-height:220px;overflow-y:auto;min-width:180px;}
+.dep-dd-item{display:flex;align-items:center;gap:6px;padding:5px 9px;cursor:pointer;font-size:10px;border-bottom:1px solid var(--bd);}
+.dep-dd-item:last-child{border-bottom:none;}
+.dep-dd-item:hover{background:var(--acl);}
+.dep-dd-item input[type=checkbox]{accent-color:var(--ac);flex-shrink:0;}
+.dep-dd-label{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.dep-dd-type{font-size:8px;color:var(--txm);font-family:'IBM Plex Mono',monospace;}
 .te-add-row{display:grid;grid-template-columns:1fr 70px 78px 78px 36px 40px;gap:3px;margin-top:6px;align-items:end;}
 .te-add-row input,.te-add-row select{font-size:10px!important;}
 /* Add-task card (improved ergonomics) */
@@ -214,7 +230,7 @@ input[type=color]{width:100%;height:24px;border:1px solid var(--bd);border-radiu
           <th style="width:76px">Fin</th>
           <th style="width:30px">%</th>
           <th style="width:30px">ID</th>
-          <th style="width:40px">Dep</th>
+          <th style="width:60px">Dep</th>
           <th style="width:38px" title="Días naturales (inicio→fin, inclusivo). Editable.">Días</th>
           <th style="width:18px"></th>
         </tr></thead>
@@ -3707,6 +3723,85 @@ function teCollapseAll(on){
 
 function getTipos(){ return TIPOS_BASE; }
 
+// ── DEP COMBO ──────────────────────────────────────────────────
+let _activeDepDd=null;
+function _closeDepDd(){ if(_activeDepDd){ _activeDepDd.remove(); _activeDepDd=null; } }
+
+function makeDepCombo(rowRef, selfIdx){
+  const wrap=document.createElement('div'); wrap.className='dep-combo';
+  const trigger=document.createElement('div'); trigger.className='dep-combo-trigger'; trigger.tabIndex=0;
+
+  const refresh=()=>{
+    trigger.innerHTML='';
+    const deps=(rowRef.dep_str||'').split(',').map(s=>s.trim()).filter(Boolean);
+    if(!deps.length){ const ph=document.createElement('span'); ph.className='dep-ph'; ph.textContent='dep'; trigger.appendChild(ph); return; }
+    deps.forEach(d=>{ const c=document.createElement('span'); c.className='dep-chip'; c.textContent=d; trigger.appendChild(c); });
+  };
+  refresh();
+
+  trigger.addEventListener('click', e=>{
+    e.stopPropagation();
+    if(_activeDepDd){ _closeDepDd(); return; }
+    const dd=document.createElement('div'); dd.className='dep-dropdown'; _activeDepDd=dd;
+    const curDeps=(rowRef.dep_str||'').split(',').map(s=>s.trim()).filter(Boolean);
+    let added=0;
+    teRows.forEach((r,j)=>{
+      if(j===selfIdx || !r.tarea) return;
+      const key=r.id||r.tarea;
+      const item=document.createElement('div'); item.className='dep-dd-item';
+      const ck=document.createElement('input'); ck.type='checkbox'; ck.checked=curDeps.includes(key);
+      const lbl=document.createElement('span'); lbl.className='dep-dd-label'; lbl.textContent=r.tarea;
+      const typ=document.createElement('span'); typ.className='dep-dd-type'; typ.textContent=r.id?`[${r.id}]`:'';
+      ck.addEventListener('change',()=>{
+        const deps=(rowRef.dep_str||'').split(',').map(s=>s.trim()).filter(Boolean);
+        if(ck.checked){ if(!deps.includes(key)) deps.push(key); }
+        else { const ix=deps.indexOf(key); if(ix>=0) deps.splice(ix,1); }
+        rowRef.dep_str=deps.join(',');
+        teRows[selfIdx].dep_str=rowRef.dep_str;
+        refresh(); teSyncToRaw(); render();
+      });
+      item.appendChild(ck); item.appendChild(lbl); item.appendChild(typ);
+      dd.appendChild(item); added++;
+    });
+    if(!added){ const em=document.createElement('div'); em.style.cssText='padding:8px;font-size:9px;color:var(--txm);'; em.textContent='Sin otras tareas'; dd.appendChild(em); }
+    const rect=trigger.getBoundingClientRect();
+    dd.style.top=(rect.bottom+3)+'px'; dd.style.left=rect.left+'px';
+    document.body.appendChild(dd);
+    setTimeout(()=>document.addEventListener('click',_closeDepDd,{once:true}),0);
+  });
+
+  wrap.appendChild(trigger);
+  return wrap;
+}
+
+// ── COLUMN RESIZE ──────────────────────────────────────────────
+// Default widths match the <th style="width:..."> in HTML (index order)
+const TE_COL_DEFAULTS=[14,18,180,60,76,76,30,30,60,38,18];
+function initTeColResize(){
+  const ths=[...document.querySelectorAll('#te-table thead th')];
+  ths.forEach((th,ci)=>{
+    if(ci===0||ci===1||ci===10) return; // skip drag/vis/del columns
+    // Apply any stored width
+    if(TE_COL_DEFAULTS[ci]) th.style.width=TE_COL_DEFAULTS[ci]+'px';
+    const h=document.createElement('div'); h.className='col-resize-handle'; th.appendChild(h);
+    h.addEventListener('mousedown',e=>{
+      e.preventDefault(); e.stopPropagation();
+      const startX=e.clientX, startW=th.offsetWidth;
+      h.classList.add('col-resize-active');
+      document.body.style.cursor='col-resize';
+      const onMove=ev=>{ th.style.width=Math.max(20,startW+(ev.clientX-startX))+'px'; };
+      const onUp=()=>{
+        h.classList.remove('col-resize-active');
+        document.body.style.cursor='';
+        window.removeEventListener('mousemove',onMove);
+        window.removeEventListener('mouseup',onUp);
+      };
+      window.addEventListener('mousemove',onMove);
+      window.addEventListener('mouseup',onUp);
+    });
+  });
+}
+
 // Render the editable table
 function teRender(){
   const tbody = document.getElementById('te-tbody');
@@ -3884,7 +3979,7 @@ function teRender(){
     tr.appendChild(cell('date',row.fin,'fin',{hidden:isH}));
     tr.appendChild(cell('number',row.avance,'avance',{ph:'%'}));
     tr.appendChild(cell('text',row.id,'id',{ph:'id'}));
-    tr.appendChild(cell('text',row.dep_str,'dep_str',{ph:'dep'}));
+    const tdDep=document.createElement('td'); tdDep.appendChild(makeDepCombo(row,i)); tr.appendChild(tdDep);
     tr.appendChild(daysCell());
 
     // delete button
@@ -4015,6 +4110,8 @@ function _initAll(){
     document.addEventListener('touchend',()=>{dragging=false;applyZoom();});
     try{const sw=localStorage.getItem('gantt_sb_width');if(sw)ws.style.setProperty('--sb-width',(+sw)+'px');}catch(e2){}
   })();
+
+  initTeColResize(); // attach resize handles to task table headers
 
   const _zoom=document.getElementById('zoom');
   if(_zoom) _zoom.addEventListener('input',function(){const zv=document.getElementById('zval');if(zv)zv.textContent=this.value+'%';applyZoom();});

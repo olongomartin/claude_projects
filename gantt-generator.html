@@ -2080,7 +2080,19 @@ function render(){
     ctx.fillStyle=isArtistico?'#2a2438':isMinimal?CH:(isDarkTheme||isDeloitte?'rgba(255,255,255,0.82)':'#ffffff');
     ctx.font=isArtistico?`italic bold ${FSEJE}px ${FF_E}`:`bold ${FSEJE}px ${FF_E}`;
     ctx.textAlign='center'; ctx.textBaseline='middle';
-    if(p.w>8) ctx.fillText(trunc(ctx,p.label,p.w-4),px2+p.w/2,PY+PH/2);
+    if(p.w>2){
+      // La etiqueta del mes NUNCA se trunca: encoge la fuente hasta que quepa
+      // y, si aún no cabe al mínimo, se dibuja completa (centrada) en vez de cortarla.
+      const baseFont = isArtistico?`italic bold ` : `bold `;
+      const minM = Math.max(5, FSEJE*0.55);
+      let mSize = FSEJE;
+      while(mSize > minM && ctx.measureText(p.label).width > p.w-2){
+        mSize -= 0.5;
+        ctx.font=`${baseFont}${mSize}px ${FF_E}`;
+      }
+      ctx.fillText(p.label,px2+p.w/2,PY+PH/2);
+      if(mSize!==FSEJE) ctx.font=`${baseFont}${FSEJE}px ${FF_E}`;
+    }
     // Divider — header zone full opacity, task area very faint
     const divCol = isArtistico?'rgba(212,175,55,0.28)':(isC1||isDarkTheme)?ha('#ffffff',0.12):isMinimal?ha(CH,0.10):ha(CH,0.12);
     ctx.strokeStyle=divCol; ctx.lineWidth=0.5;

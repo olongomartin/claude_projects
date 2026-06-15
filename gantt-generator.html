@@ -3715,51 +3715,51 @@ async function dlPPTX(){
   const R=LAST_RENDER, IN=v=>+(v/96).toFixed(3), PT=px=>Math.max(5,Math.round(px*0.72));
   const pptx=new PptxGen();
   const Wi=IN(R.LGW), Hi=IN(R.LGH);
-  pptx.defineLayout({name:'GANTT',width:Wi,height:Hi}); pptx.layout='GANTT';
+  const M=0.35; // margen uniforme en pulgadas alrededor del plan
+  const SW=+(Wi+2*M).toFixed(3), SH=+(Hi+2*M).toFixed(3);
+  pptx.defineLayout({name:'GANTT',width:SW,height:SH}); pptx.layout='GANTT';
   const slide=pptx.addSlide();
   slide.background={color:'FFFFFF'};
+  const P=v=>+(M+v/96).toFixed(3); // posición con offset de margen
   const rect=pptx.ShapeType.rect, rr=pptx.ShapeType.roundRect, diamond=pptx.ShapeType.diamond, line=pptx.ShapeType.line;
   const LWx=R.LW, HD=R.hdr||{};
   const planY0=R.TP, planY1=R.TP+R.NR*R.RH, planX1=R.LGW;
-  const P=R.palette||{}; const CH=P.CH||'2A7A6F', CST=P.CST||CH, CB=P.CB||CH;
+  const PAL=R.palette||{}; const CH=PAL.CH||'2A7A6F', CST=PAL.CST||CH, CB=PAL.CB||CH;
 
   const lineSeg=(x1,y1,x2,y2,arrow,color,wid)=>{
     const x=Math.min(x1,x2), y=Math.min(y1,y2), w=Math.abs(x2-x1), h=Math.abs(y2-y1);
     if(w<0.5&&h<0.5) return;
-    slide.addShape(line,{x:IN(x),y:IN(y),w:IN(Math.max(w,0.5)),h:IN(Math.max(h,0.5)),
+    slide.addShape(line,{x:P(x),y:P(y),w:IN(Math.max(w,0.5)),h:IN(Math.max(h,0.5)),
       line:{color:color||'555555',width:wid||1,endArrowType:arrow?'triangle':'none'},
       flipH:x2<x1, flipV:y2<y1});
   };
 
-  // ── BARRA DE TÍTULO ──
+  // ── BARRA DE TÍTULO (cuando TH>0) ──
   if(R.TH>4){
-    slide.addShape(rect,{x:0,y:0,w:IN(R.LGW),h:IN(R.TH),fill:{color:CH},line:{type:'none'}});
-    if(R.title) slide.addText(R.title,{x:IN(10),y:0,w:IN(R.LGW-20),h:IN(R.TH),fontSize:PT(R.FST||14),align:'left',valign:'middle',bold:true,color:_contrast(CH),margin:0,wrap:false,fit:'shrink'});
+    slide.addShape(rect,{x:P(0),y:P(0),w:IN(R.LGW),h:IN(R.TH),fill:{color:CH},line:{type:'none'}});
+    if(R.title) slide.addText(R.title,{x:P(10),y:P(0),w:IN(R.LGW-20),h:IN(R.TH),fontSize:PT(R.FST||14),align:'left',valign:'middle',bold:true,color:_contrast(CH),margin:0,wrap:false,fit:'shrink'});
   }
-  // Título en la zona izquierda de la cabecera (cuando TH=0, como es siempre el caso)
+  // Título en la zona izquierda de la banda de años (caso habitual TH=0)
   if(R.TH<=4 && R.title && R.YH>4){
-    slide.addText(R.title,{x:IN(8),y:IN(R.TH),w:IN(LWx-10),h:IN(R.YH),fontSize:PT(Math.min(R.YH*0.62,14)),align:'left',valign:'middle',bold:true,color:_contrast(HD.yearFill||CH),margin:0,wrap:false,fit:'shrink'});
+    slide.addText(R.title,{x:P(8),y:P(R.TH),w:IN(LWx-10),h:IN(R.YH),fontSize:PT(Math.min(R.YH*0.62,14)),align:'left',valign:'middle',bold:true,color:_contrast(HD.yearFill||CH),margin:0,wrap:false,fit:'shrink'});
   }
 
-  // ── FONDO GENERAL DEL ÁREA DE CABECERA (left + right, detrás de bandas) ──
-  slide.addShape(rect,{x:0,y:IN(R.TH),w:IN(R.LGW),h:IN(R.HDR),fill:{color:HD.lhdr||'EDEAE4'},line:{type:'none'}});
+  // ── FONDO DE CABECERA ──
+  slide.addShape(rect,{x:P(0),y:P(R.TH),w:IN(R.LGW),h:IN(R.HDR),fill:{color:HD.lhdr||'EDEAE4'},line:{type:'none'}});
 
-  // ── ZEBRA STRIPING en área del plan ──
+  // ── ZEBRA STRIPING ──
   for(let i=0;i<R.NR;i++){
     const yy=R.TP+i*R.RH;
     const fill=i%2===0?(HD.zebraA||'FFFFFF'):(HD.zebraB||'F5F3EF');
-    slide.addShape(rect,{x:0,y:IN(yy),w:IN(R.LGW),h:IN(R.RH),fill:{color:fill},line:{type:'none'}});
+    slide.addShape(rect,{x:P(0),y:P(yy),w:IN(R.LGW),h:IN(R.RH),fill:{color:fill},line:{type:'none'}});
   }
 
-  // ── FONDOS DE FILA POR NIVEL (sobre zebra) ──
+  // ── FONDOS DE FILA POR NIVEL ──
   R.bars.forEach(b=>{
-    // Izquierda: tint del nivel
-    slide.addShape(rect,{x:0,y:IN(b.y),w:IN(LWx),h:IN(b.h),fill:{color:b.lbg||'FFFFFF'},line:{type:'none'}});
-    // Acento izquierdo (banda de color) para stream/bloque
-    if(b.isS){ slide.addShape(rect,{x:0,y:IN(b.y),w:IN(3),h:IN(b.h),fill:{color:CH},line:{type:'none'}}); }
-    else if(b.isB){ slide.addShape(rect,{x:0,y:IN(b.y),w:IN(3),h:IN(b.h),fill:{color:_lighten(CH,0.3)},line:{type:'none'}}); }
-    // Derecha del plan: tint sutil para streams
-    if(b.isS){ slide.addShape(rect,{x:IN(LWx),y:IN(b.y),w:IN(R.LGW-LWx),h:IN(b.h),fill:{color:_lighten(CH,0.88)},line:{type:'none'}}); }
+    slide.addShape(rect,{x:P(0),y:P(b.y),w:IN(LWx),h:IN(b.h),fill:{color:b.lbg||'FFFFFF'},line:{type:'none'}});
+    if(b.isS){ slide.addShape(rect,{x:P(0),y:P(b.y),w:IN(3),h:IN(b.h),fill:{color:CH},line:{type:'none'}}); }
+    else if(b.isB){ slide.addShape(rect,{x:P(0),y:P(b.y),w:IN(3),h:IN(b.h),fill:{color:_lighten(CH,0.3)},line:{type:'none'}}); }
+    if(b.isS){ slide.addShape(rect,{x:P(LWx),y:P(b.y),w:IN(R.LGW-LWx),h:IN(b.h),fill:{color:_lighten(CH,0.88)},line:{type:'none'}}); }
   });
 
   // ── CUADRÍCULA ──
@@ -3769,30 +3769,30 @@ async function dlPPTX(){
   // ── BANDA DE AÑOS ──
   const yText=_contrast(HD.yearFill||CH);
   R.years.forEach(y=>{
-    const x=IN(LWx+y.x0), w=IN(y.x1-y.x0);
-    slide.addShape(rect,{x,y:IN(R.TH),w,h:IN(R.YH),fill:{color:HD.yearFill||CH},line:{color:'FFFFFF',width:1}});
-    if(R.YH>4) slide.addText(y.label,{x,y:IN(R.TH),w,h:IN(R.YH),fontSize:PT(R.YH*0.62),align:'center',valign:'middle',bold:true,color:yText,charSpacing:0.5,margin:0,wrap:false,fit:'shrink'});
+    const x=P(LWx+y.x0), w=IN(y.x1-y.x0);
+    slide.addShape(rect,{x,y:P(R.TH),w,h:IN(R.YH),fill:{color:HD.yearFill||CH},line:{color:'FFFFFF',width:1}});
+    if(R.YH>4) slide.addText(y.label,{x,y:P(R.TH),w,h:IN(R.YH),fontSize:PT(R.YH*0.62),align:'center',valign:'middle',bold:true,color:yText,charSpacing:0.5,margin:0,wrap:false,fit:'shrink'});
   });
 
   // ── BANDA DE MESES ──
   const monY=R.TH+R.YH+R.QH;
   const mfA=HD.monthFillA||_lighten(CH,0.28), mfB=HD.monthFillB||_lighten(CH,0.40);
   R.months.forEach((m,mi)=>{
-    const x=IN(LWx+m.x), w=IN(m.w), fill=mi%2===0?mfA:mfB;
-    slide.addShape(rect,{x,y:IN(monY),w,h:IN(R.PH),fill:{color:fill},line:{color:'FFFFFF',width:0.75}});
-    if(R.PH>4&&m.w>6) slide.addText(m.label,{x,y:IN(monY),w,h:IN(R.PH),fontSize:PT(Math.min(R.PH*0.62,m.w*0.9)),align:'center',valign:'middle',bold:true,color:_contrast(fill),margin:0,wrap:false,fit:'shrink'});
+    const x=P(LWx+m.x), w=IN(m.w), fill=mi%2===0?mfA:mfB;
+    slide.addShape(rect,{x,y:P(monY),w,h:IN(R.PH),fill:{color:fill},line:{color:'FFFFFF',width:0.75}});
+    if(R.PH>4&&m.w>6) slide.addText(m.label,{x,y:P(monY),w,h:IN(R.PH),fontSize:PT(Math.min(R.PH*0.62,m.w*0.9)),align:'center',valign:'middle',bold:true,color:_contrast(fill),margin:0,wrap:false,fit:'shrink'});
   });
 
   // ── SEPARADOR VERTICAL ──
-  slide.addShape(line,{x:IN(LWx),y:IN(R.TH),w:0,h:IN(R.LGH-R.TH),line:{color:_lighten(CH,0.45),width:1}});
+  slide.addShape(line,{x:P(LWx),y:P(R.TH),w:0,h:IN(R.LGH-R.TH),line:{color:_lighten(CH,0.45),width:1}});
 
-  // ── ETIQUETAS DE LA COLUMNA IZQUIERDA ──
+  // ── ETIQUETAS ──
   R.bars.forEach(b=>{
     if(!b.name) return;
     const indent=b.isS?8:b.isB?13:18;
     const fs=PT(Math.min(b.h*0.52, b.isS?(R.FSS||10):(b.isB?(R.FSB||9):(R.FSTA||8))));
     const lclr=b.isS?_darken(CH,0.15):b.isB?CH:'3A3A3A';
-    slide.addText(b.name,{x:IN(indent),y:IN(b.y),w:IN(LWx-indent-4),h:IN(b.h),fontSize:fs,align:'left',valign:'middle',bold:b.isS||b.isB,color:lclr,margin:0,wrap:false,fit:'shrink'});
+    slide.addText(b.name,{x:P(indent),y:P(b.y),w:IN(LWx-indent-4),h:IN(b.h),fontSize:fs,align:'left',valign:'middle',bold:b.isS||b.isB,color:lclr,margin:0,wrap:false,fit:'shrink'});
   });
 
   // ── BARRAS ──
@@ -3800,11 +3800,11 @@ async function dlPPTX(){
     const base=_hex(b.color);
     const col=b.isS?base:b.isB?_lighten(base,0.18):_lighten(base,0.36);
     const rad=IN(Math.min(b.h/2,3));
-    slide.addShape(rr,{x:IN(b.x),y:IN(b.y+b.h*0.08),w:IN(Math.max(b.w,2)),h:IN(b.h*0.84),rectRadius:rad,fill:{color:col},line:{type:'none'}});
+    slide.addShape(rr,{x:P(b.x),y:P(b.y+b.h*0.08),w:IN(Math.max(b.w,2)),h:IN(b.h*0.84),rectRadius:rad,fill:{color:col},line:{type:'none'}});
     if(b.avance>0&&b.avance<100&&!b.isS){
       const pw=Math.max(b.w*b.avance/100,2);
-      slide.addShape(rr,{x:IN(b.x),y:IN(b.y+b.h*0.08),w:IN(pw),h:IN(b.h*0.84),rectRadius:rad,fill:{color:_darken(base,0.20)},line:{type:'none'}});
-      if(pw>18) slide.addText(b.avance+'%',{x:IN(b.x),y:IN(b.y),w:IN(pw),h:IN(b.h),fontSize:PT(Math.min(b.h*0.4,9)),align:'center',valign:'middle',color:'FFFFFF',bold:true,margin:0,wrap:false});
+      slide.addShape(rr,{x:P(b.x),y:P(b.y+b.h*0.08),w:IN(pw),h:IN(b.h*0.84),rectRadius:rad,fill:{color:_darken(base,0.20)},line:{type:'none'}});
+      if(pw>18) slide.addText(b.avance+'%',{x:P(b.x),y:P(b.y),w:IN(pw),h:IN(b.h),fontSize:PT(Math.min(b.h*0.4,9)),align:'center',valign:'middle',color:'FFFFFF',bold:true,margin:0,wrap:false});
     }
   });
 
@@ -3812,8 +3812,8 @@ async function dlPPTX(){
   R.hitos.forEach(h=>{
     const sz=Math.min(R.RH*0.65,11);
     const cy=h.inline?(R.TP+h.rowBefore*R.RH):(R.TP+R.NR*R.RH+sz);
-    slide.addShape(diamond,{x:IN(h.hx-sz/2),y:IN(cy-sz/2),w:IN(sz),h:IN(sz),fill:{color:_hex(h.color)},line:{color:'FFFFFF',width:0.75}});
-    if(h.name) slide.addText(h.name,{x:IN(h.hx+sz/2+3),y:IN(cy-sz),w:IN(110),h:IN(sz*2),fontSize:PT(sz*0.68),align:'left',valign:'middle',color:'444444',margin:0,wrap:false});
+    slide.addShape(diamond,{x:P(h.hx-sz/2),y:P(cy-sz/2),w:IN(sz),h:IN(sz),fill:{color:_hex(h.color)},line:{color:'FFFFFF',width:0.75}});
+    if(h.name) slide.addText(h.name,{x:P(h.hx+sz/2+3),y:P(cy-sz),w:IN(110),h:IN(sz*2),fontSize:PT(sz*0.68),align:'left',valign:'middle',color:'444444',margin:0,wrap:false});
   });
 
   // ── DEPENDENCIAS (codo en L) ──
@@ -3824,8 +3824,8 @@ async function dlPPTX(){
     lineSeg(elbowX,d.toY,  d.toX, d.toY,  true, '777777',0.75);
   });
 
-  // ── BORDE EXTERIOR ──
-  slide.addShape(rect,{x:0,y:0,w:IN(R.LGW),h:IN(R.LGH),fill:{type:'none'},line:{color:_lighten(CH,0.50),width:1}});
+  // ── BORDE EXTERIOR DEL PLAN (con margen) ──
+  slide.addShape(rect,{x:P(0),y:P(0),w:IN(R.LGW),h:IN(R.LGH),fill:{type:'none'},line:{color:_lighten(CH,0.50),width:1}});
 
   try{
     await pptx.writeFile({fileName:'gantt-editable.pptx'});

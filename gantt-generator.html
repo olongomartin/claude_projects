@@ -3736,6 +3736,10 @@ async function dlPPTX(){
     slide.addShape(rect,{x:0,y:0,w:IN(R.LGW),h:IN(R.TH),fill:{color:CH},line:{type:'none'}});
     if(R.title) slide.addText(R.title,{x:IN(10),y:0,w:IN(R.LGW-20),h:IN(R.TH),fontSize:PT(R.FST||14),align:'left',valign:'middle',bold:true,color:_contrast(CH),margin:0,wrap:false,fit:'shrink'});
   }
+  // Título en la zona izquierda de la cabecera (cuando TH=0, como es siempre el caso)
+  if(R.TH<=4 && R.title && R.YH>4){
+    slide.addText(R.title,{x:IN(8),y:IN(R.TH),w:IN(LWx-10),h:IN(R.YH),fontSize:PT(Math.min(R.YH*0.62,14)),align:'left',valign:'middle',bold:true,color:_contrast(HD.yearFill||CH),margin:0,wrap:false,fit:'shrink'});
+  }
 
   // ── FONDO GENERAL DEL ÁREA DE CABECERA (left + right, detrás de bandas) ──
   slide.addShape(rect,{x:0,y:IN(R.TH),w:IN(R.LGW),h:IN(R.HDR),fill:{color:HD.lhdr||'EDEAE4'},line:{type:'none'}});

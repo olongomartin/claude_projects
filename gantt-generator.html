@@ -1601,10 +1601,12 @@ function render(){
   // Final canvas height + row height
   let LGH, RH;
   if(cmH > 0){
-    // Fixed canvas height: rows fill exactly the space left after header + hito strip + footer
+    // Fixed canvas height: rows fill EXACTLY the space left after header + hito strip + footer.
+    // RH se ajusta al alto disponible (fraccional) para que el plan nunca se salga del área
+    // estipulada al expandir, ni deje hueco al colapsar. Las barras y fuentes ya escalan con RH/VSC.
     LGH = Math.round(cmH / CM_PER_INCH * BASE_DPI);
-    const avail = LGH - TP - HSH - FGAP - FTH;
-    RH = NR>0 ? Math.max(8, Math.floor(avail / NR)) : RH0;
+    const avail = Math.max(20, LGH - TP - HSH - FGAP - FTH);
+    RH = NR>0 ? Math.max(3, avail / NR) : RH0;
   } else {
     // Auto height: natural row height, canvas grows to fit
     RH = Math.max(8, Math.round(RH0*VSC));

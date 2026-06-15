@@ -477,6 +477,7 @@ input[type=color]{width:100%;height:24px;border:1px solid var(--bd);border-radiu
       <div class="field"><label>Color Today</label><input type="color" id="today-color" value="#e74c3c"></div>
     </div>
     <div class="ck-row" style="margin-top:4px"><input type="checkbox" id="show-hitos" checked><label for="show-hitos">Mostrar franja Hitos</label></div>
+    <div class="ck-row"><input type="checkbox" id="hitos-inline"><label for="hitos-inline">Hitos en línea (◆ entre las tareas)</label></div>
     <div class="ck-row"><input type="checkbox" id="show-avance" checked><label for="show-avance">Mostrar % de avance en barras</label></div>
     <div class="ck-row"><input type="checkbox" id="show-deps" checked><label for="show-deps">Mostrar flechas de dependencias</label></div>
     <div class="ck-row"><input type="checkbox" id="show-critical"><label for="show-critical">Resaltar camino crítico</label></div>
@@ -633,7 +634,7 @@ const ALL_IDS = [
   'fst','fss','fsb','fsta','fsh','fseje',
   'ch','cst','cb','ct','cho','chol','cci','ctxs',
   'dpr','zoom','today-date','today-color',
-  'show-legend','show-today','show-hitos','show-avance','show-deps','show-critical','closure-opacity','plan-start','plan-end','show-border','border-width','border-color','canvas-w-cm','canvas-h-cm','show-years','show-quarters','show-months','show-weeks'
+  'show-legend','show-today','show-hitos','hitos-inline','show-avance','show-deps','show-critical','closure-opacity','plan-start','plan-end','show-border','border-width','border-color','canvas-w-cm','canvas-h-cm','show-years','show-quarters','show-months','show-weeks'
 ];
 
 function collectState() {
@@ -1414,6 +1415,7 @@ function render(){
   const SHOW_LEGEND = document.getElementById('show-legend').checked;
   const SHOW_TODAY  = document.getElementById('show-today').checked;
   const SHOW_HITOS  = document.getElementById('show-hitos').checked;
+  const HITOS_INLINE = document.getElementById('hitos-inline') ? document.getElementById('hitos-inline').checked : false;
   const SHOW_AVANCE = document.getElementById('show-avance').checked;
   const SHOW_DEPS   = document.getElementById('show-deps').checked;
   const SHOW_CRIT   = document.getElementById('show-critical').checked;
@@ -1562,7 +1564,7 @@ function render(){
   const HDR0 = YH0+QH0+PH0+SPH0;
   const RH0  = Math.max(12, +document.getElementById('rh').value || 20); // natural row height
   const FTH0 = SHOW_LEGEND ? 19 : 0;
-  const HSH0 = hitoTasks.length>0 ? 38 : 0;
+  const HSH0 = (hitoTasks.length>0 && !HITOS_INLINE) ? 38 : 0;
   const FGAP0= (SHOW_LEGEND && hitoTasks.length>0) ? 4 : 0;
   // Natural total height at scale 1.0:
   const naturalH = TH + HDR0 + NR*RH0 + HSH0 + FGAP0 + FTH0;
@@ -1587,7 +1589,7 @@ function render(){
   // Hito strip: must fit the diamond marker (top ~52%) + label (bottom ~48%).
   // Floor it so the scaled font label never clips off the bottom.
   const FSH_tmp = Math.max(4, FSH0*VSC);
-  const HSH = hitoTasks.length>0 ? Math.max(Math.round(HSH0*VSC), Math.ceil(FSH_tmp*2.6)+10) : 0;
+  const HSH = (hitoTasks.length>0 && !HITOS_INLINE) ? Math.max(Math.round(HSH0*VSC), Math.ceil(FSH_tmp*2.6)+10) : 0;
   const FGAP= Math.round(FGAP0*VSC);
 
   // Scale fonts by VSC too (kept sharp by high DPR)
@@ -2351,7 +2353,7 @@ function render(){
   });
 
   // ── HITO STRIP BACKGROUND (always if hitos exist) ──
-  if(hitoTasks.length>0){
+  if(hitoTasks.length>0 && !HITOS_INLINE){
     const hsy=TP+NR*RH;
     ctx.fillStyle=isLOTR?'#e8d5b0':isStarWars?'#06060f':isSketch?'#f5ecd4':isCobalt?'#eef3fb':isAmber?'#222222':isC1?'#f8f8f6':isChevron?'#f0f4fa':isSwimlane?bw(CH,0.90):isEjecutivo?'#fafafa':isDarkTheme?bw(CH,0.04):isDeloitte?'#f0f8e8':isModerno2?'#0e0e18':isMinimal?'#f4f4f4':isArtistico?'#e8d5b0':'#f4f3f0';
     ctx.fillRect(0,hsy,LGW,HSH);
@@ -3025,11 +3027,51 @@ function render(){
     ctx.restore();
   }
 
+  // Posición vertical de cada hito inline: nº de filas (no-hito) que aparecen antes en el orden
+  const hitoRowBefore = new Map();
+  { let rb=0; for(const t of allTasks){ if(isHitoTipo(t)) hitoRowBefore.set(t, rb); else rb++; } }
+
   hitoTasks.forEach(task=>{
     const baseColor=taskColors[task.tarea]||CHO;
     const sd=dmy(task.inicio); if(!sd) return;
     const b0=Math.max(0,daysB(cs,sd));
     const hx=LW+b0*DPX;
+
+    // ── HITO EN LÍNEA (◆ entre la barra anterior y la posterior) ──
+    if(HITOS_INLINE){
+      const rb=hitoRowBefore.get(task)||0;
+      const mr=Math.min(Math.max(RH*0.45,4),8);
+      // línea divisoria entre fila anterior y posterior, sin salirse del área de tareas
+      const my=Math.max(TP+mr, Math.min(TP+rb*RH, TP+NR*RH-mr));
+      EDIT_GEOM.push({ taskRef:task, name:task.tarea, tipo:task.tipo, inicio:task.inicio, fin:task.fin,
+        x:hx-8, w:16, y:my-RH/2, h:RH, isStream:false, isHito:true, hx:hx });
+      // rombo
+      ctx.save();
+      ctx.shadowColor=ha(baseColor,0.35); ctx.shadowBlur=3; ctx.shadowOffsetY=1;
+      ctx.translate(hx,my); ctx.rotate(Math.PI/4);
+      ctx.fillStyle=baseColor; rr(ctx,-mr,-mr,mr*2,mr*2,1.5); ctx.fill();
+      ctx.restore();
+      // borde claro para contraste sobre las barras
+      ctx.save(); ctx.translate(hx,my); ctx.rotate(Math.PI/4);
+      ctx.strokeStyle=isDarkTheme?'rgba(255,255,255,0.55)':'rgba(255,255,255,0.85)';
+      ctx.lineWidth=0.75; ctx.strokeRect(-mr,-mr,mr*2,mr*2); ctx.restore();
+      // label compacto al lado del rombo, con "pill" translúcido para que lea sobre las barras
+      if(task.tarea){
+        ctx.font=`600 ${Math.max(5,FSH*0.92)}px ${FF_H}`;
+        ctx.textBaseline='middle';
+        const lbl=task.tarea, tw=ctx.measureText(lbl).width, padX=3, ph=Math.max(9,FSH+2);
+        let lx=hx+mr+4, align='left';
+        if(lx+tw+padX*2>LGW){ align='right'; lx=hx-mr-4; } // si no cabe a la derecha, va a la izquierda
+        ctx.fillStyle=isDarkTheme?'rgba(0,0,0,0.55)':'rgba(255,255,255,0.78)';
+        const bxp = align==='left' ? lx-padX : lx-tw-padX;
+        rr(ctx,bxp,my-ph/2,tw+padX*2,ph,2); ctx.fill();
+        ctx.fillStyle=FC_H||(isDarkTheme?'#ffffff':'#1a1a1a');
+        ctx.textAlign=align; ctx.fillText(lbl,lx,my);
+        ctx.textAlign='left';
+      }
+      return;
+    }
+
     // Store hito edit geometry (marker is in the hito strip)
     EDIT_GEOM.push({
       taskRef: task, name: task.tarea, tipo: task.tipo, inicio: task.inicio, fin: task.fin,

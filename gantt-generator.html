@@ -108,6 +108,8 @@ input[type=color]{width:100%;height:24px;border:1px solid var(--bd);border-radiu
 
 /* preview */
 .preview-area{overflow:auto;padding:22px;display:flex;flex-direction:column;align-items:flex-start;gap:11px;background:#dedad4;background-image:radial-gradient(circle,#bebab4 1px,transparent 1px);background-size:16px 16px;}
+#gc{position:relative;}
+#dep-overlay{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;overflow:visible;display:none;}
 .ptbar{display:flex;gap:6px;align-items:center;flex-shrink:0;background:var(--sf);border-top:1px solid var(--bd);padding:8px 12px;box-shadow:0 -2px 12px rgba(0,0,0,.10);z-index:30;}
 /* Drag tooltip */
 #drag-tooltip{position:fixed;display:none;pointer-events:none;z-index:9999;background:#1a1a1a;color:#fff;font-size:11px;font-family:'IBM Plex Mono',monospace;padding:6px 10px;border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,.35);white-space:nowrap;line-height:1.5;border:1px solid rgba(255,255,255,0.12);}
@@ -581,7 +583,7 @@ input[type=color]{width:100%;height:24px;border:1px solid var(--bd);border-radiu
 <div class="main-col">
 <main class="preview-area" id="pa">
   <div class="empty-state" id="es"><div class="big">📊</div><p>Carga un CSV o edita las tareas — el Gantt se dibuja solo.</p></div>
-  <div id="gc" style="display:none"><canvas id="cv"></canvas></div>
+  <div id="gc" style="display:none"><canvas id="cv"></canvas><svg id="dep-overlay"><defs><marker id="dep-arrow-marker" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#2a7a6f"/></marker></defs></svg></div>
   <!-- Summary below the plan -->
   <div id="plan-summary" style="display:none;align-self:stretch;background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:7px 12px;font-size:10px;color:var(--txm);align-items:center;gap:14px;flex-wrap:wrap">
     <span id="tbinfo">–</span>
@@ -1138,13 +1140,15 @@ function evToLogical(e){
   return { x: xDev/DPR, y: yDev/DPR }; // logical px
 }
 
-// Hit-test: which bar + which zone (left/move/right)
+// Hit-test: which bar + which zone (left/move/right/dep)
+const DEP_GRAB=12; // px outside right edge for dep connector zone
 function hitTest(lx,ly){
   for(const g of EDIT_GEOM){
-    if(ly>=g.y && ly<=g.y+g.h && lx>=g.x-EDGE_PX && lx<=g.x+g.w+EDGE_PX){
+    if(ly>=g.y && ly<=g.y+g.h && lx>=g.x-EDGE_PX && lx<=g.x+g.w+DEP_GRAB){
       if(g.isHito) return { g, zone:'move' };
-      // stream and bloque: move only (they're rollups of their children)
       if(g.isStream || g.tipo==='bloque') return { g, zone:'move' };
+      // Dep connector zone: just outside right edge (non-stream, non-hito tareas)
+      if(lx > g.x+g.w) return { g, zone:'dep' };
       if(lx <= g.x+EDGE_PX) return { g, zone:'left' };
       if(lx >= g.x+g.w-EDGE_PX) return { g, zone:'right' };
       return { g, zone:'move' };
@@ -1192,6 +1196,64 @@ function hideDragTooltip(){
 }
 
 let dragState=null;
+let depDragState=null; // {fromGeom, fromCssX, fromCssY}
+
+function _getZoom(){ return (document.getElementById('zoom')||{value:100}).value/100; }
+
+function logicalToCss(lx,ly){ const z=_getZoom(); return {x:lx*z, y:ly*z}; }
+
+function updateDepOverlay(fromCss, toCss, targetGeom){
+  const svg=document.getElementById('dep-overlay'); if(!svg) return;
+  svg.style.display='block';
+  const dx=toCss.x-fromCss.x, dy=toCss.y-fromCss.y;
+  const cp=Math.max(40, Math.abs(dx)*0.55);
+  const d=`M${fromCss.x},${fromCss.y} C${fromCss.x+cp},${fromCss.y} ${toCss.x-cp},${toCss.y} ${toCss.x},${toCss.y}`;
+  const ns='http://www.w3.org/2000/svg';
+  // clear dynamic elements (keep <defs>)
+  while(svg.children.length>1) svg.removeChild(svg.lastChild);
+  if(targetGeom){
+    const tc=logicalToCss(targetGeom.x, targetGeom.y);
+    const z=_getZoom();
+    const rect=document.createElementNS(ns,'rect');
+    rect.setAttribute('x',tc.x); rect.setAttribute('y',tc.y);
+    rect.setAttribute('width',targetGeom.w*z); rect.setAttribute('height',targetGeom.h*z);
+    rect.setAttribute('rx','3'); rect.setAttribute('fill','rgba(42,122,111,0.18)');
+    rect.setAttribute('stroke','#2a7a6f'); rect.setAttribute('stroke-width','1.5');
+    svg.appendChild(rect);
+  }
+  const path=document.createElementNS(ns,'path');
+  path.setAttribute('d',d); path.setAttribute('fill','none');
+  path.setAttribute('stroke','#2a7a6f'); path.setAttribute('stroke-width','2');
+  path.setAttribute('stroke-dasharray','6,3');
+  path.setAttribute('marker-end','url(#dep-arrow-marker)');
+  svg.appendChild(path);
+  const dot=document.createElementNS(ns,'circle');
+  dot.setAttribute('cx',fromCss.x); dot.setAttribute('cy',fromCss.y);
+  dot.setAttribute('r','5'); dot.setAttribute('fill','#2a7a6f');
+  dot.setAttribute('stroke','white'); dot.setAttribute('stroke-width','1.5');
+  svg.appendChild(dot);
+}
+
+function showDepHandle(geom){
+  const svg=document.getElementById('dep-overlay'); if(!svg) return;
+  svg.style.display='block';
+  const ns='http://www.w3.org/2000/svg';
+  while(svg.children.length>1) svg.removeChild(svg.lastChild);
+  const c=logicalToCss(geom.x+geom.w, geom.y+geom.h/2);
+  const dot=document.createElementNS(ns,'circle');
+  dot.setAttribute('cx',c.x); dot.setAttribute('cy',c.y);
+  dot.setAttribute('r','5'); dot.setAttribute('fill','#2a7a6f');
+  dot.setAttribute('stroke','white'); dot.setAttribute('stroke-width','1.5');
+  dot.setAttribute('opacity','0.9');
+  svg.appendChild(dot);
+}
+
+function clearDepOverlay(){
+  const svg=document.getElementById('dep-overlay'); if(!svg) return;
+  svg.style.display='none';
+  while(svg.children.length>1) svg.removeChild(svg.lastChild);
+}
+
 function setupEditLayer(){
   const cv=document.getElementById('cv');
   if(!cv || cv._editBound) return;
@@ -1209,6 +1271,17 @@ function setupEditLayer(){
 
   cv.addEventListener('mousemove',e=>{
     if(!EDIT_ENABLED || !EDIT_CTX) return;
+    if(depDragState){
+      const cvEl=document.getElementById('cv');
+      const rect=cvEl.getBoundingClientRect();
+      const cssX=e.clientX-rect.left, cssY=e.clientY-rect.top;
+      const {x,y}=evToLogical(e);
+      const tHit=hitTest(x,y);
+      const targetGeom=(tHit && tHit.g!==depDragState.fromGeom && !tHit.g.isHito && !tHit.g.isStream) ? tHit.g : null;
+      updateDepOverlay({x:depDragState.fromCssX,y:depDragState.fromCssY},{x:cssX,y:cssY},targetGeom);
+      cvEl.style.cursor='crosshair';
+      return;
+    }
     if(dragState){
       const {x}=evToLogical(e);
       const dxPx = x - dragState.startX;
@@ -1226,8 +1299,15 @@ function setupEditLayer(){
     const {x,y}=evToLogical(e);
     const hit=hitTest(x,y);
     if(hit){
-      cv.style.cursor = hit.zone==='move' ? 'grab' : 'ew-resize';
+      if(hit.zone==='dep'){
+        cv.style.cursor='crosshair';
+        showDepHandle(hit.g);
+      } else {
+        clearDepOverlay();
+        cv.style.cursor = hit.zone==='move' ? 'grab' : 'ew-resize';
+      }
     } else {
+      clearDepOverlay();
       cv.style.cursor='default';
     }
   });
@@ -1238,6 +1318,18 @@ function setupEditLayer(){
     const hit=hitTest(x,y);
     if(!hit) return;
     e.preventDefault();
+    // Dep connector drag: starts from right side outside bar
+    if(hit.zone==='dep'){
+      const z=_getZoom();
+      const rect=cv.getBoundingClientRect();
+      depDragState={
+        fromGeom: hit.g,
+        fromCssX: (hit.g.x+hit.g.w)*z,
+        fromCssY: (hit.g.y+hit.g.h/2)*z
+      };
+      cv.style.cursor='crosshair';
+      return;
+    }
     const idx=findRowIndex(hit.g);
     if(idx<0) return;
     const row=teRows[idx];
@@ -1251,7 +1343,39 @@ function setupEditLayer(){
     cv.style.cursor = 'grabbing';
   });
 
-  window.addEventListener('mouseup',()=>{
+  cv.addEventListener('mouseleave',()=>{ if(!depDragState) clearDepOverlay(); });
+
+  window.addEventListener('mouseup',e=>{
+    if(depDragState){
+      const cvEl=document.getElementById('cv');
+      if(cvEl){
+        const rect=cvEl.getBoundingClientRect();
+        const scaleX=cvEl.width/rect.width, scaleY=cvEl.height/rect.height;
+        const DPR=EDIT_CTX?EDIT_CTX.DPR:4;
+        const lx=((e.clientX-rect.left)*scaleX)/DPR;
+        const ly=((e.clientY-rect.top)*scaleY)/DPR;
+        const tHit=hitTest(lx,ly);
+        if(tHit && tHit.g!==depDragState.fromGeom && !tHit.g.isHito && !tHit.g.isStream){
+          const fromIdx=findRowIndex(depDragState.fromGeom);
+          const toIdx=findRowIndex(tHit.g);
+          if(fromIdx>=0 && toIdx>=0 && fromIdx!==toIdx){
+            const fromRow=teRows[fromIdx];
+            const toRow=teRows[toIdx];
+            const depKey=fromRow.id||fromRow.tarea;
+            const existing=(toRow.dep_str||'').split(',').map(s=>s.trim()).filter(Boolean);
+            if(!existing.includes(depKey)){
+              existing.push(depKey);
+              toRow.dep_str=existing.join(',');
+              teSyncToRaw(); teRender(); render();
+            }
+          }
+        }
+        cvEl.style.cursor='default';
+      }
+      clearDepOverlay();
+      depDragState=null;
+      return;
+    }
     if(dragState){
       hideDragTooltip();
       dragState=null;

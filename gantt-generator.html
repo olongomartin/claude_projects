@@ -3579,6 +3579,12 @@ function render(){
       bg:'#ffffff',
       gridLine:'#e2ddd4',
       headerFill:'#edeae4',
+      hdr:{
+        yearFill:_hex(CH),
+        monthFillA:_hex(bw(CH,0.28)), monthFillB:_hex(bw(CH,0.40)),
+        qFillA:_hex(bw(CH,0.18)), qFillB:_hex(bw(CH,0.30)),
+        line:_hex(bw(CH,0.55))
+      },
       months: monthPeriods.map(p=>({x:p.x, w:p.w, label:p.label})),
       years: Object.values(yrG2),
       bars: visTasks.filter(t=>t._bx!=null).map(t=>({
@@ -3683,6 +3689,12 @@ function _darken(c,amt){
   r=Math.round(r*(1-amt)); g=Math.round(g*(1-amt)); b=Math.round(b*(1-amt));
   return [r,g,b].map(n=>('0'+n.toString(16)).slice(-2)).join('').toUpperCase();
 }
+// Texto legible (negro/blanco) según luminancia del fondo
+function _contrast(c){
+  const h=_hex(c); const r=parseInt(h.slice(0,2),16),g=parseInt(h.slice(2,4),16),b=parseInt(h.slice(4,6),16);
+  const lum=(0.299*r+0.587*g+0.114*b)/255;
+  return lum>0.6 ? '3A3A3A' : 'FFFFFF';
+}
 
 async function dlPPTX(){
   if(!LAST_RENDER){ st('Genera el plan primero.','err'); return; }
@@ -3718,19 +3730,26 @@ async function dlPPTX(){
   // Separadores de fila
   for(let i=0;i<=R.NR;i++){ const yy=R.TP+i*R.RH; lineSeg(LWx, yy, planX1, yy, false, 'F0ECE5', 0.5); }
 
-  // ── Banda de años ──
+  const HD=R.hdr||{yearFill:'D8D4CB',monthFillA:'EDEAE4',monthFillB:'E4E0D8',qFillA:'CFCABF',qFillB:'C4BEB2',line:'FFFFFF'};
+  // ── Banda de años ── (color del tema, texto contrastado, grande y en negrita)
+  const yText=_contrast(HD.yearFill);
   R.years.forEach(y=>{
     const x=IN(LWx+y.x0), w=IN(y.x1-y.x0);
-    slide.addShape(rect,{x,y:IN(R.TH),w,h:IN(R.YH),fill:{color:'D8D4CB'},line:{color:'FFFFFF',width:1}});
-    if(R.YH>3) slide.addText(y.label,{x,y:IN(R.TH),w,h:IN(R.YH),fontSize:PT(R.YH*0.6),align:'center',valign:'middle',bold:true,color:'3A3A3A',margin:0,wrap:false,fit:'shrink'});
+    slide.addShape(rect,{x,y:IN(R.TH),w,h:IN(R.YH),fill:{color:HD.yearFill},line:{color:'FFFFFF',width:1}});
+    if(R.YH>3) slide.addText(y.label,{x,y:IN(R.TH),w,h:IN(R.YH),fontSize:PT(R.YH*0.66),align:'center',valign:'middle',bold:true,color:yText,charSpacing:1,margin:0,wrap:false,fit:'shrink'});
   });
-  // ── Banda de meses ──
+  // ── Banda de meses ── (tonos alternos del tema + divisores verticales)
   const monY=R.TH+R.YH+R.QH;
-  R.months.forEach(m=>{
+  R.months.forEach((m,mi)=>{
     const x=IN(LWx+m.x), w=IN(m.w);
-    slide.addShape(rect,{x,y:IN(monY),w,h:IN(R.PH),fill:{color:'EDEAE4'},line:{color:'FFFFFF',width:1}});
-    if(R.PH>3&&m.w>3) slide.addText(m.label,{x,y:IN(monY),w,h:IN(R.PH),fontSize:PT(Math.min(R.PH*0.55,m.w*0.7)),align:'center',valign:'middle',color:'5A5A5A',margin:0,wrap:false,fit:'shrink'});
+    const fill = mi%2===0 ? HD.monthFillA : HD.monthFillB;
+    slide.addShape(rect,{x,y:IN(monY),w,h:IN(R.PH),fill:{color:fill},line:{color:'FFFFFF',width:0.75}});
+    if(R.PH>3&&m.w>3) slide.addText(m.label,{x,y:IN(monY),w,h:IN(R.PH),fontSize:PT(Math.min(R.PH*0.6,m.w*0.8)),align:'center',valign:'middle',bold:true,color:_contrast(fill),margin:0,wrap:false,fit:'shrink'});
   });
+  // ── Banda de trimestres (si está activa) ──
+  if(R.QH>3){
+    // (las divisiones de trimestre se omiten en esta prueba salvo color de banda)
+  }
 
   // ── Barras + etiquetas a la izquierda (colores por nivel) ──
   R.bars.forEach(b=>{

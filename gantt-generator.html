@@ -354,7 +354,7 @@ input[type=color]{width:100%;height:24px;border:1px solid var(--bd);border-radiu
       <div class="te-bar">
         <button class="btn btn-s" style="flex:1;font-size:10px" onclick="teSyncFromRaw()">↑ Aplicar CSV raw</button>
       </div>
-      <div class="hint" style="margin-top:5px"><strong>Columnas:</strong> tarea;tipo;inicio;fin;avance;id;dep</div>
+      <div class="hint" style="margin-top:5px"><strong>Columnas:</strong> tarea;tipo;inicio;fin;avance;id;dep;vis;col</div>
     </div>
 
     <input type="file" id="fi" accept=".csv,.txt" style="display:none">
@@ -967,7 +967,7 @@ function parseCSV(txt){
   const skip=first.includes('tarea')||first.includes('task')||first.includes('tipo');
   return(skip?lines.slice(1):lines).map((line,idx)=>{
     const c=line.split(';').map(x=>x.trim().replace(/^"|"$/g,''));
-    // Columns: tarea;tipo;inicio;fin;avance;id;dep
+    // Columns: tarea;tipo;inicio;fin;avance;id;dep;vis;col
     let avance=parseFloat((c[4]||'').replace('%','').replace(',','.'));
     if(isNaN(avance)) avance=null; else avance=Math.max(0,Math.min(100,avance));
     return{
@@ -978,6 +978,8 @@ function parseCSV(txt){
       avance:avance,
       id:(c[5]||'').trim(),
       dep:(c[6]||'').trim().split(',').map(s=>s.trim()).filter(Boolean),
+      vis: c[7]!=='0',
+      collapsed: c[8]==='1',
       _row:idx
     };
   }).filter(r=>r.tarea);
@@ -3338,7 +3340,9 @@ function teSyncFromRaw(){
     tarea:t.tarea, tipo:t.tipo,
     inicio:t.inicio, fin:t.fin,
     avance:t.avance!=null?String(Math.round(t.avance)):'',
-    id:t.id||'', dep_str:(t.dep||[]).join(',')
+    id:t.id||'', dep_str:(t.dep||[]).join(','),
+    vis: t.vis !== false,
+    collapsed: !!t.collapsed
   }));
   recalcHierarchy(); // correct stream/bloque dates from children on load
   teRender(); scheduleSave();
@@ -3378,10 +3382,11 @@ function recalcHierarchy(){
 
 function teSyncToRaw(){
   recalcHierarchy(); // stream/bloque always reflect their children
-  const header = 'tarea;tipo;inicio;fin;avance;id;dep';
+  const header = 'tarea;tipo;inicio;fin;avance;id;dep;vis;col';
   const lines = teRows.map(r=>[
     r.tarea, r.tipo, r.inicio, r.tipo==='hito'?'':r.fin,
-    r.avance||'', r.id||'', r.dep_str||''
+    r.avance||'', r.id||'', r.dep_str||'',
+    r.vis===false?'0':'', r.collapsed?'1':''
   ].join(';'));
   document.getElementById('csv').value = [header,...lines].join('\n');
   scheduleSave();
@@ -3540,7 +3545,8 @@ function teAddRow(){
   teRows.push({
     tarea:name, tipo, inicio:start,
     fin:isH?'':end,
-    avance:av||'', id:'', dep_str:''
+    avance:av||'', id:'', dep_str:'',
+    vis:true, collapsed:false
   });
   teSyncToRaw(); teRender();
   // clear form

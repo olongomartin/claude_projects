@@ -2429,7 +2429,17 @@ function render(){
     ctx.textAlign='left'; ctx.textBaseline='middle';
     const txtIndent = isC1 ? (lv.isS?6:lv.isB?14:22) : isArtistico ? (lv.isS?10:lv.isB?18:26) : lv.indent;
     if(!(isSwimlane && lv.isS)){
-      ctx.fillText(trunc(ctx,task.tarea,LW-txtIndent-6),txtIndent,ry+RH/2);
+      const availW = LW - txtIndent - 6;
+      // Auto-ajuste: encoge la fuente hasta que la etiqueta quepa (mínimo ~60% del tamaño),
+      // y solo trunca con … si aún no entra al tamaño mínimo.
+      const minSize = Math.max(6, fsize*0.6);
+      let lblSize = fsize;
+      while(lblSize > minSize && ctx.measureText(task.tarea).width > availW){
+        lblSize -= 0.5;
+        ctx.font=`${fstyle}${fweight} ${lblSize}px ${font}`;
+      }
+      ctx.fillText(trunc(ctx,task.tarea,availW),txtIndent,ry+RH/2);
+      if(lblSize!==fsize) ctx.font=`${fstyle}${fweight} ${fsize}px ${font}`; // restaura
     }
 
     const sd=dmy(task.inicio),ed=dmy(task.fin)||dmy(task.inicio);

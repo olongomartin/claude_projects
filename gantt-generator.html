@@ -29,7 +29,18 @@ header h1{font-size:14px;font-weight:600;color:var(--ac);}
 .workspace{display:grid;grid-template-columns:var(--sb-width,360px) 4px 1fr;flex:1;overflow:hidden;height:calc(100vh - 43px);}
 .workspace.collapsed{grid-template-columns:0 0 1fr;}
 .workspace.collapsed .sb{transform:translateX(-100%);opacity:0;pointer-events:none;}
-.sb{background:var(--sf);border-right:none;overflow-y:auto;display:flex;flex-direction:column;transition:transform .22s ease,opacity .18s ease;}
+.sb{background:var(--sf);border-right:none;overflow:hidden;display:flex;flex-direction:column;transition:transform .22s ease,opacity .18s ease;}
+/* Tareas fixed top + collapsible settings (ergonomics rework) */
+.sb-fixed{flex:1 1 auto;overflow-y:auto;min-height:140px;display:flex;flex-direction:column;}
+.sb-settings{flex:0 0 auto;display:flex;flex-direction:column;min-height:0;border-top:2px solid var(--bd);background:var(--sf);}
+.sb-settings-toggle{display:flex;align-items:center;gap:6px;width:100%;border:none;background:var(--sf2);color:var(--ac);font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:1px;text-transform:uppercase;font-weight:600;padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--bd);}
+.sb-settings-toggle:hover{background:var(--acl);}
+.sb-settings-toggle .set-caret{margin-left:auto;font-size:11px;transition:transform .18s;}
+.sb-settings.collapsed .set-caret{transform:rotate(-90deg);}
+.sb-settings.collapsed .sb-settings-body{display:none;}
+.sb-settings-body{overflow-y:auto;max-height:46vh;}
+/* Main column: preview (scroll) + fixed bottom action bar */
+.main-col{display:flex;flex-direction:column;overflow:hidden;min-width:0;}
 .sb-resize{width:4px;background:var(--bd);cursor:col-resize;transition:background .15s;flex-shrink:0;}
 .sb-resize:hover,.sb-resize.dragging{background:var(--ac);}
 /* Tabbed sidebar */
@@ -96,7 +107,7 @@ input[type=color]{width:100%;height:24px;border:1px solid var(--bd);border-radiu
 
 /* preview */
 .preview-area{overflow:auto;padding:22px;display:flex;flex-direction:column;align-items:flex-start;gap:11px;background:#dedad4;background-image:radial-gradient(circle,#bebab4 1px,transparent 1px);background-size:16px 16px;}
-.ptbar{display:flex;gap:6px;align-items:center;flex-shrink:0;background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:6px 10px;box-shadow:0 2px 10px rgba(0,0,0,.10);position:sticky;top:0;z-index:30;}
+.ptbar{display:flex;gap:6px;align-items:center;flex-shrink:0;background:var(--sf);border-top:1px solid var(--bd);padding:8px 12px;box-shadow:0 -2px 12px rgba(0,0,0,.10);z-index:30;}
 /* Drag tooltip */
 #drag-tooltip{position:fixed;display:none;pointer-events:none;z-index:9999;background:#1a1a1a;color:#fff;font-size:11px;font-family:'IBM Plex Mono',monospace;padding:6px 10px;border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,.35);white-space:nowrap;line-height:1.5;border:1px solid rgba(255,255,255,0.12);}
 #drag-tooltip::after{content:'';position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);border:6px solid transparent;border-top-color:#1a1a1a;border-bottom:none;}
@@ -147,6 +158,18 @@ input[type=color]{width:100%;height:24px;border:1px solid var(--bd);border-radiu
 .te-table .td-drag{width:14px;text-align:center;cursor:grab;color:#ccc;font-size:11px;padding:0 2px;}
 .te-add-row{display:grid;grid-template-columns:1fr 70px 78px 78px 36px 40px;gap:3px;margin-top:6px;align-items:end;}
 .te-add-row input,.te-add-row select{font-size:10px!important;}
+/* Add-task card (improved ergonomics) */
+.te-addcard{border:1px solid var(--bd);border-radius:var(--r);background:var(--sf2);padding:9px;margin-top:6px;display:none;}
+.te-addcard.open{display:block;}
+.te-addcard .ac-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;}
+.te-addcard .ac-grid .field{margin:0;}
+.te-addcard .field.full{grid-column:1 / -1;}
+.te-addcard label{font-size:9.5px;}
+.te-addcard input[type=text],.te-addcard select{font-size:11px;padding:5px 7px;}
+.te-addcard .ac-date{display:flex;align-items:center;gap:2px;background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:0 4px;}
+.te-addcard .ac-date input{border:none;background:transparent;flex:1;text-align:center;padding:5px 2px;}
+.te-addcard .ac-date button{border:none;background:transparent;cursor:pointer;font-size:13px;padding:0;}
+.te-addnew-btn{width:100%;margin-top:6px;}
 .te-bar{display:flex;gap:4px;margin-top:5px;flex-wrap:wrap;}
 </style>
 </head>
@@ -164,10 +187,91 @@ input[type=color]{width:100%;height:24px;border:1px solid var(--bd);border-radiu
 <div class="workspace" id="workspace">
 <aside class="sb" id="sidebar">
 
+  <!-- FIXED · EDITOR DE TAREAS (panel principal, siempre visible) -->
+  <div class="sb-fixed">
+  <div class="ss">
+    <div class="sl">Tareas
+      <button class="btn btn-s" style="padding:2px 5px;font-size:9px;margin-left:auto" onclick="teVisAll(true)" title="Mostrar todas las tareas en el Gantt">👁 Todo</button>
+      <button class="btn btn-s" style="padding:2px 5px;font-size:9px" onclick="teVisAll(false)" title="Ocultar todas las tareas del Gantt">🚫 Nada</button>
+      <button class="btn btn-s" style="padding:2px 5px;font-size:9px" onclick="teCollapseAll(true)" title="Colapsar todos los streams y bloques">▶ Plegar</button>
+      <button class="btn btn-s" style="padding:2px 5px;font-size:9px" onclick="teCollapseAll(false)" title="Expandir todos los streams y bloques">▼ Desplegar</button>
+      <button class="btn btn-s" style="padding:2px 5px;font-size:9px" onclick="teImportFile()" title="Cargar CSV">📂</button>
+      <button class="btn btn-s" style="padding:2px 5px;font-size:9px" onclick="teToggleRaw()" id="te-raw-btn" title="Ver/editar CSV raw">CSV</button>
+    </div>
+
+    <!-- Editable table -->
+    <div class="te-wrap" id="te-wrap">
+      <table class="te-table" id="te-table">
+        <thead><tr>
+          <th style="width:14px"></th>
+          <th style="width:18px" title="Mostrar en el Gantt">👁</th>
+          <th style="width:120px">Tarea</th>
+          <th style="width:60px">Tipo</th>
+          <th style="width:76px">Inicio</th>
+          <th style="width:76px">Fin</th>
+          <th style="width:30px">%</th>
+          <th style="width:30px">ID</th>
+          <th style="width:40px">Dep</th>
+          <th style="width:38px" title="Días naturales (inicio→fin, inclusivo). Editable.">Días</th>
+          <th style="width:18px"></th>
+        </tr></thead>
+        <tbody id="te-tbody"></tbody>
+      </table>
+    </div>
+
+    <!-- Add task: toggle button + card -->
+    <button class="btn btn-p te-addnew-btn" id="te-addnew-btn" onclick="teToggleAddCard()">+ Añadir tarea</button>
+    <div class="te-addcard" id="te-addcard">
+      <div class="ac-grid">
+        <div class="field full"><label>Nombre</label><input type="text" id="te-name" placeholder="Nombre de la tarea"></div>
+        <div class="field"><label>Tipo</label>
+          <select id="te-tipo">
+            <option value="stream">stream</option>
+            <option value="bloque">bloque</option>
+            <option value="tarea" selected>tarea</option>
+            <option value="hito">hito</option>
+          </select>
+        </div>
+        <div class="field"><label>% avance <small style="color:var(--txm)">(opcional)</small></label><input type="text" id="te-avance" placeholder="0–100"></div>
+        <div class="field"><label>Inicio</label>
+          <div class="ac-date">
+            <input type="text" id="te-start" placeholder="dd/mm/aaaa" maxlength="10">
+            <button type="button" onclick="openFormPicker('te-start')" title="Calendario">📅</button>
+            <input type="date" id="te-start-pick" lang="es-ES" style="width:0;height:0;opacity:0;position:absolute;pointer-events:none">
+          </div>
+        </div>
+        <div class="field"><label>Fin</label>
+          <div class="ac-date">
+            <input type="text" id="te-end" placeholder="dd/mm/aaaa" maxlength="10">
+            <button type="button" onclick="openFormPicker('te-end')" title="Calendario">📅</button>
+            <input type="date" id="te-end-pick" lang="es-ES" style="width:0;height:0;opacity:0;position:absolute;pointer-events:none">
+          </div>
+        </div>
+        <div class="field full"><button class="btn btn-p" style="width:100%;padding:6px 0" onclick="teAddRow()">+ Añadir al plan</button></div>
+      </div>
+    </div>
+
+    <!-- Raw CSV (hidden by default) -->
+    <div id="te-raw-wrap" style="display:none;margin-top:6px">
+      <textarea id="csv" spellcheck="false" style="min-height:120px"></textarea>
+      <div class="te-bar">
+        <button class="btn btn-s" style="flex:1;font-size:10px" onclick="teSyncFromRaw()">↑ Aplicar CSV raw</button>
+      </div>
+      <div class="hint" style="margin-top:5px"><strong>Columnas:</strong> tarea;tipo;inicio;fin;avance;id;dep;vis;col</div>
+    </div>
+
+    <input type="file" id="fi" accept=".csv,.txt" style="display:none">
+  </div>
+  </div><!-- /sb-fixed -->
+
+  <!-- COLLAPSIBLE · AJUSTES -->
+  <div class="sb-settings" id="sb-settings">
+  <button class="sb-settings-toggle" onclick="toggleSettings()">⚙ Ajustes <span class="set-caret">▾</span></button>
+  <div class="sb-settings-body" id="sb-settings-body">
+
   <!-- TAB BAR -->
   <div class="sb-tabs" id="sb-tabs">
-    <button class="sb-tab" data-tab="layout" onclick="switchSbTab('layout')">Layout</button>
-    <button class="sb-tab active" data-tab="tareas" onclick="switchSbTab('tareas')">Tareas</button>
+    <button class="sb-tab active" data-tab="layout" onclick="switchSbTab('layout')">Layout</button>
     <button class="sb-tab" data-tab="cierres" onclick="switchSbTab('cierres')">Cierres</button>
     <button class="sb-tab" data-tab="calendario" onclick="switchSbTab('calendario')">Calendario</button>
     <button class="sb-tab" data-tab="estilo" onclick="switchSbTab('estilo')">Estilo</button>
@@ -175,7 +279,7 @@ input[type=color]{width:100%;height:24px;border:1px solid var(--bd);border-radiu
   </div>
 
   <!-- 1 · LAYOUT -->
-  <div class="tab-panel" data-panel="layout">
+  <div class="tab-panel active" data-panel="layout">
   <div class="ss">
     <div class="sl">Layout visual</div>
     <div class="layout-grid" id="layout-grid">
@@ -303,83 +407,6 @@ input[type=color]{width:100%;height:24px;border:1px solid var(--bd);border-radiu
   </div>
 
   </div><!-- /layout panel -->
-
-  <!-- 2 · EDITOR DE TAREAS -->
-  <div class="tab-panel active" data-panel="tareas">
-  <div class="ss">
-    <div class="sl">Tareas
-      <button class="btn btn-s" style="padding:2px 5px;font-size:9px;margin-left:auto" onclick="teVisAll(true)" title="Mostrar todas las tareas en el Gantt">👁 Todo</button>
-      <button class="btn btn-s" style="padding:2px 5px;font-size:9px" onclick="teVisAll(false)" title="Ocultar todas las tareas del Gantt">🚫 Nada</button>
-      <button class="btn btn-s" style="padding:2px 5px;font-size:9px" onclick="teCollapseAll(true)" title="Colapsar todos los streams y bloques">▶ Plegar</button>
-      <button class="btn btn-s" style="padding:2px 5px;font-size:9px" onclick="teCollapseAll(false)" title="Expandir todos los streams y bloques">▼ Desplegar</button>
-      <button class="btn btn-s" style="padding:2px 5px;font-size:9px" onclick="teImportFile()" title="Cargar CSV">📂</button>
-      <button class="btn btn-s" style="padding:2px 5px;font-size:9px" onclick="teToggleRaw()" id="te-raw-btn" title="Ver/editar CSV raw">CSV</button>
-    </div>
-
-    <!-- Add task form -->
-    <div class="te-add-row">
-      <div class="field" style="margin:0"><label>Nombre</label><input type="text" id="te-name" placeholder="Nombre de la tarea"></div>
-      <div class="field" style="margin:0"><label>Tipo</label>
-        <select id="te-tipo">
-          <option value="stream">stream</option>
-          <option value="bloque">bloque</option>
-          <option value="tarea" selected>tarea</option>
-          <option value="hito">hito</option>
-        </select>
-      </div>
-      <div class="field" style="margin:0">
-        <label>Inicio</label>
-        <div style="display:flex;align-items:center;gap:1px">
-          <input type="text" id="te-start" placeholder="dd/mm/aaaa" maxlength="10" style="text-align:center">
-          <button type="button" onclick="openFormPicker('te-start')" title="Calendario" style="border:none;background:transparent;cursor:pointer;font-size:12px">📅</button>
-          <input type="date" id="te-start-pick" lang="es-ES" style="width:0;height:0;opacity:0;position:absolute;pointer-events:none">
-        </div>
-      </div>
-      <div class="field" style="margin:0">
-        <label>Fin</label>
-        <div style="display:flex;align-items:center;gap:1px">
-          <input type="text" id="te-end" placeholder="dd/mm/aaaa" maxlength="10" style="text-align:center">
-          <button type="button" onclick="openFormPicker('te-end')" title="Calendario" style="border:none;background:transparent;cursor:pointer;font-size:12px">📅</button>
-          <input type="date" id="te-end-pick" lang="es-ES" style="width:0;height:0;opacity:0;position:absolute;pointer-events:none">
-        </div>
-      </div>
-      <input type="hidden" id="te-avance" value="">
-      <div class="field" style="margin:0"><label>&nbsp;</label><button class="btn btn-p" style="width:100%;padding:4px 0" onclick="teAddRow()">+ Add</button></div>
-    </div>
-
-    <!-- Editable table -->
-    <div class="te-wrap" id="te-wrap">
-      <table class="te-table" id="te-table">
-        <thead><tr>
-          <th style="width:14px"></th>
-          <th style="width:18px" title="Mostrar en el Gantt">👁</th>
-          <th style="width:120px">Tarea</th>
-          <th style="width:60px">Tipo</th>
-          <th style="width:76px">Inicio</th>
-          <th style="width:76px">Fin</th>
-          <th style="width:30px">%</th>
-          <th style="width:30px">ID</th>
-          <th style="width:40px">Dep</th>
-          <th style="width:38px" title="Días naturales (inicio→fin, inclusivo). Editable.">Días</th>
-          <th style="width:18px"></th>
-        </tr></thead>
-        <tbody id="te-tbody"></tbody>
-      </table>
-    </div>
-
-    <!-- Raw CSV (hidden by default) -->
-    <div id="te-raw-wrap" style="display:none;margin-top:6px">
-      <textarea id="csv" spellcheck="false" style="min-height:120px"></textarea>
-      <div class="te-bar">
-        <button class="btn btn-s" style="flex:1;font-size:10px" onclick="teSyncFromRaw()">↑ Aplicar CSV raw</button>
-      </div>
-      <div class="hint" style="margin-top:5px"><strong>Columnas:</strong> tarea;tipo;inicio;fin;avance;id;dep;vis;col</div>
-    </div>
-
-    <input type="file" id="fi" accept=".csv,.txt" style="display:none">
-  </div>
-
-  </div><!-- /tareas panel -->
 
   <!-- 3 · CIERRES -->
   <div class="tab-panel" data-panel="cierres">
@@ -545,27 +572,13 @@ input[type=color]{width:100%;height:24px;border:1px solid var(--bd);border-radiu
   </div>
   </div><!-- /calidad panel -->
 
+  </div><!-- /sb-settings-body -->
+  </div><!-- /sb-settings -->
 </aside>
 <div class="sb-resize" id="sb-resize"></div>
+<div class="main-col">
 <main class="preview-area" id="pa">
   <div class="empty-state" id="es"><div class="big">📊</div><p>Carga un CSV o edita las tareas — el Gantt se dibuja solo.</p></div>
-  <div class="ptbar" id="tb" style="display:none">
-    <label style="display:flex;align-items:center;gap:4px;font-size:10px;cursor:pointer;user-select:none">
-      <input type="checkbox" id="edit-mode" checked>
-      ✏️ Editar
-    </label>
-    <span style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--txm);margin-left:6px">
-      <span>Zoom</span>
-      <input type="range" id="zoom" min="10" max="200" value="100" style="width:90px">
-      <span id="zval" style="min-width:32px">100%</span>
-    </span>
-    <span style="flex:1"></span>
-    <button class="btn btn-g" style="padding:4px 10px;font-size:10px" onclick="dlPNG()" title="Descargar PNG">⬇ PNG</button>
-    <button class="btn btn-s" style="padding:4px 10px;font-size:10px" onclick="dlSVG()" title="SVG vectorial para PowerPoint (tamaño cm exacto)">⬇ SVG</button>
-    <button class="btn btn-s" style="padding:4px 10px;font-size:10px" onclick="dlCSV()" title="Descargar CSV de datos">⬇ CSV</button>
-    <button class="btn btn-s" style="padding:4px 10px;font-size:10px" onclick="exportEstilos()" title="Descargar JSON con el estilo actual (layout, colores, fuentes)">⬇ Estilo</button>
-    <button class="btn btn-s" style="padding:4px 8px;font-size:10px" onclick="saveMobile()" title="Guardar/compartir en móvil">📱</button>
-  </div>
   <div id="gc" style="display:none"><canvas id="cv"></canvas></div>
   <!-- Summary below the plan -->
   <div id="plan-summary" style="display:none;align-self:stretch;background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:7px 12px;font-size:10px;color:var(--txm);align-items:center;gap:14px;flex-wrap:wrap">
@@ -574,6 +587,25 @@ input[type=color]{width:100%;height:24px;border:1px solid var(--bd);border-radiu
     <span id="status" class="status" style="margin:0"></span>
   </div>
 </main>
+<!-- Bottom action bar (zoom + exports) -->
+<div class="ptbar" id="tb" style="display:none">
+  <label style="display:flex;align-items:center;gap:4px;font-size:10px;cursor:pointer;user-select:none">
+    <input type="checkbox" id="edit-mode" checked>
+    ✏️ Editar
+  </label>
+  <span style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--txm);margin-left:6px">
+    <span>Zoom</span>
+    <input type="range" id="zoom" min="10" max="200" value="100" style="width:90px">
+    <span id="zval" style="min-width:32px">100%</span>
+  </span>
+  <span style="flex:1"></span>
+  <button class="btn btn-g" style="padding:4px 10px;font-size:10px" onclick="dlPNG()" title="Descargar PNG">⬇ PNG</button>
+  <button class="btn btn-s" style="padding:4px 10px;font-size:10px" onclick="dlSVG()" title="SVG vectorial para PowerPoint (tamaño cm exacto)">⬇ SVG</button>
+  <button class="btn btn-s" style="padding:4px 10px;font-size:10px" onclick="dlCSV()" title="Descargar CSV de datos">⬇ CSV</button>
+  <button class="btn btn-s" style="padding:4px 10px;font-size:10px" onclick="exportEstilos()" title="Descargar JSON con el estilo actual (layout, colores, fuentes)">⬇ Estilo</button>
+  <button class="btn btn-s" style="padding:4px 8px;font-size:10px" onclick="saveMobile()" title="Guardar/compartir en móvil">📱</button>
+</div>
+</div><!-- /main-col -->
 </div>
 
 <script>
@@ -3345,6 +3377,22 @@ function toggleSidebar(){
   const btn=document.getElementById('sb-toggle');
   btn.textContent=ws.classList.contains('collapsed')?'☰':'✕';
   setTimeout(applyZoom,240);
+}
+
+// Collapse/expand the bottom "Ajustes" settings section
+function toggleSettings(force){
+  const s=document.getElementById('sb-settings'); if(!s) return;
+  if(typeof force==='boolean') s.classList.toggle('collapsed', force);
+  else s.classList.toggle('collapsed');
+}
+
+// Show/hide the add-task card
+function teToggleAddCard(){
+  const c=document.getElementById('te-addcard'); if(!c) return;
+  const open=c.classList.toggle('open');
+  const b=document.getElementById('te-addnew-btn');
+  if(b) b.textContent = open ? '× Cerrar' : '+ Añadir tarea';
+  if(open){ const n=document.getElementById('te-name'); if(n) n.focus(); }
 }
 
 // ── Sidebar resize drag ──

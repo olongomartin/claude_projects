@@ -26,10 +26,22 @@ header h1{font-size:14px;font-weight:600;color:var(--ac);}
 .htag{font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--txm);letter-spacing:1.5px;}
 .hsaved{font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--ac);margin-left:auto;opacity:0;transition:opacity .4s;}
 .hsaved.show{opacity:1;}
-.workspace{display:grid;grid-template-columns:var(--sb-width,360px) 4px 1fr;flex:1;overflow:hidden;height:calc(100vh - 43px);}
+.workspace{display:grid;grid-template-columns:var(--sb-width,450px) 4px 1fr;flex:1;overflow:hidden;height:calc(100vh - 43px);}
 .workspace.collapsed{grid-template-columns:0 0 1fr;}
 .workspace.collapsed .sb{transform:translateX(-100%);opacity:0;pointer-events:none;}
-.sb{background:var(--sf);border-right:none;overflow-y:auto;display:flex;flex-direction:column;transition:transform .22s ease,opacity .18s ease;}
+.sb{background:var(--sf);border-right:none;overflow:hidden;display:flex;flex-direction:column;transition:transform .22s ease,opacity .18s ease;}
+/* Tareas fixed top + collapsible settings (ergonomics rework) */
+.sb-fixed{flex:1 1 auto;overflow:hidden;min-height:140px;display:flex;flex-direction:column;}
+.sb-fixed>.ss{display:flex;flex-direction:column;flex:1 1 0;overflow:hidden;padding-bottom:6px;border-bottom:none;}
+.sb-settings{order:-1;flex:0 0 auto;display:flex;flex-direction:column;min-height:0;border-bottom:2px solid var(--bd);background:var(--sf);}
+.sb-settings-toggle{display:flex;align-items:center;gap:6px;width:100%;border:none;background:var(--sf2);color:var(--ac);font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:1px;text-transform:uppercase;font-weight:600;padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--bd);}
+.sb-settings-toggle:hover{background:var(--acl);}
+.sb-settings-toggle .set-caret{margin-left:auto;font-size:11px;transition:transform .18s;}
+.sb-settings.collapsed .set-caret{transform:rotate(-90deg);}
+.sb-settings.collapsed .sb-settings-body{display:none;}
+.sb-settings-body{overflow-y:auto;max-height:46vh;}
+/* Main column: preview (scroll) + fixed bottom action bar */
+.main-col{display:flex;flex-direction:column;overflow:hidden;min-width:0;}
 .sb-resize{width:4px;background:var(--bd);cursor:col-resize;transition:background .15s;flex-shrink:0;}
 .sb-resize:hover,.sb-resize.dragging{background:var(--ac);}
 /* Tabbed sidebar */
@@ -63,6 +75,7 @@ input[type=color]{width:100%;height:24px;border:1px solid var(--bd);border-radiu
 .ck-row input[type=checkbox]{accent-color:var(--ac);width:12px;height:12px;}
 .ck-row label{font-size:10.5px;color:var(--tx);margin:0;cursor:pointer;}
 .btn{border:none;border-radius:var(--r);font-family:'IBM Plex Sans',sans-serif;font-weight:600;font-size:11px;cursor:pointer;padding:5px 10px;transition:all .15s;}
+.btn:disabled{opacity:.35;cursor:default;pointer-events:none;}
 .btn-p{background:var(--ac);color:white;}.btn-p:hover{background:#226059;}
 .btn-s{background:var(--sf2);color:var(--tx);border:1px solid var(--bd);}.btn-s:hover{border-color:var(--ac);color:var(--ac);}
 .btn-g{background:#27ae60;color:white;}.btn-g:hover{background:#219a52;}
@@ -95,8 +108,10 @@ input[type=color]{width:100%;height:24px;border:1px solid var(--bd);border-radiu
 /* levels */
 
 /* preview */
-.preview-area{overflow:auto;padding:22px;display:flex;flex-direction:column;align-items:flex-start;gap:11px;background:#dedad4;background-image:radial-gradient(circle,#bebab4 1px,transparent 1px);background-size:16px 16px;}
-.ptbar{display:flex;gap:6px;align-items:center;flex-shrink:0;background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:6px 10px;box-shadow:0 2px 10px rgba(0,0,0,.10);position:sticky;top:0;z-index:30;}
+.preview-area{flex:1 1 0;min-height:0;overflow:auto;padding:22px;display:flex;flex-direction:column;align-items:flex-start;gap:11px;background:#dedad4;background-image:radial-gradient(circle,#bebab4 1px,transparent 1px);background-size:16px 16px;}
+#gc{position:relative;}
+#dep-overlay{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;overflow:visible;display:none;}
+.ptbar{display:flex;gap:6px;align-items:center;flex-shrink:0;background:var(--sf);border-bottom:1px solid var(--bd);padding:8px 12px;box-shadow:0 2px 8px rgba(0,0,0,.08);z-index:30;order:-1;}
 /* Drag tooltip */
 #drag-tooltip{position:fixed;display:none;pointer-events:none;z-index:9999;background:#1a1a1a;color:#fff;font-size:11px;font-family:'IBM Plex Mono',monospace;padding:6px 10px;border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,.35);white-space:nowrap;line-height:1.5;border:1px solid rgba(255,255,255,0.12);}
 #drag-tooltip::after{content:'';position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);border:6px solid transparent;border-top-color:#1a1a1a;border-bottom:none;}
@@ -115,9 +130,9 @@ input[type=color]{width:100%;height:24px;border:1px solid var(--bd);border-radiu
 .jarea:focus{outline:none;border-color:var(--ac);}
 .sep{height:1px;background:var(--bd);margin:5px 0;}
 /* Task editor table */
-.te-wrap{overflow-x:auto;overflow-y:auto;max-height:340px;margin-top:6px;border:1px solid var(--bd);border-radius:var(--r);}
+.te-wrap{overflow-x:auto;overflow-y:auto;flex:1 1 0;min-height:80px;margin-top:6px;border:1px solid var(--bd);border-radius:var(--r);}
 .te-table{width:100%;border-collapse:collapse;font-size:9.5px;table-layout:fixed;}
-.te-table th{background:var(--sf2);color:var(--txm);font-family:'IBM Plex Mono',monospace;font-size:8px;letter-spacing:.8px;text-transform:uppercase;padding:4px 5px;text-align:left;position:sticky;top:0;z-index:2;border-bottom:1px solid var(--bd);white-space:nowrap;}
+.te-table th{background:var(--sf2);color:var(--txm);font-family:'IBM Plex Mono',monospace;font-size:8px;letter-spacing:.8px;text-transform:uppercase;padding:4px 5px;text-align:left;position:sticky;top:0;z-index:2;border-bottom:1px solid var(--bd);white-space:nowrap;overflow:hidden;user-select:none;}
 .te-table td{padding:2px 3px;border-bottom:1px solid #f0ece5;vertical-align:middle;}
 .te-table tr:hover td{background:#f7f5f0;}
 .te-table tr.is-stream td{background:#e8f4f2;}
@@ -145,8 +160,36 @@ input[type=color]{width:100%;height:24px;border:1px solid var(--bd);border-radiu
 .te-table .td-del button{background:none;border:none;cursor:pointer;color:#ccc;font-size:13px;line-height:1;padding:0;}
 .te-table .td-del button:hover{color:#e74c3c;}
 .te-table .td-drag{width:14px;text-align:center;cursor:grab;color:#ccc;font-size:11px;padding:0 2px;}
+/* Column resize handle */
+.col-resize-handle{position:absolute;right:0;top:0;bottom:0;width:5px;cursor:col-resize;z-index:3;}
+.col-resize-handle:hover,.col-resize-handle.col-resize-active{background:var(--ac);opacity:.7;}
+/* Dep combo widget */
+.dep-combo{position:relative;width:100%;}
+.dep-combo-trigger{display:flex;align-items:center;flex-wrap:wrap;gap:2px;min-height:16px;width:100%;padding:1px 3px;border-radius:2px;cursor:pointer;font-size:8px;}
+.dep-combo-trigger:hover{background:var(--acl);}
+.dep-combo-trigger .dep-ph{color:var(--txm);font-size:8px;}
+.dep-chip{background:var(--ac);color:#fff;border-radius:2px;padding:0 4px;font-size:7.5px;line-height:14px;white-space:nowrap;max-width:52px;overflow:hidden;text-overflow:ellipsis;}
+.dep-dropdown{position:fixed;z-index:9999;background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);box-shadow:0 4px 16px rgba(0,0,0,.18);max-height:220px;overflow-y:auto;min-width:180px;}
+.dep-dd-item{display:flex;align-items:center;gap:6px;padding:5px 9px;cursor:pointer;font-size:10px;border-bottom:1px solid var(--bd);}
+.dep-dd-item:last-child{border-bottom:none;}
+.dep-dd-item:hover{background:var(--acl);}
+.dep-dd-item input[type=checkbox]{accent-color:var(--ac);flex-shrink:0;}
+.dep-dd-label{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.dep-dd-type{font-size:8px;color:var(--txm);font-family:'IBM Plex Mono',monospace;}
 .te-add-row{display:grid;grid-template-columns:1fr 70px 78px 78px 36px 40px;gap:3px;margin-top:6px;align-items:end;}
 .te-add-row input,.te-add-row select{font-size:10px!important;}
+/* Add-task card (improved ergonomics) */
+.te-addcard{border:1px solid var(--bd);border-radius:var(--r);background:var(--sf2);padding:9px;margin-top:6px;display:none;}
+.te-addcard.open{display:block;}
+.te-addcard .ac-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;}
+.te-addcard .ac-grid .field{margin:0;}
+.te-addcard .field.full{grid-column:1 / -1;}
+.te-addcard label{font-size:9.5px;}
+.te-addcard input[type=text],.te-addcard select{font-size:11px;padding:5px 7px;}
+.te-addcard .ac-date{display:flex;align-items:center;gap:2px;background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:0 4px;}
+.te-addcard .ac-date input{border:none;background:transparent;flex:1;text-align:center;padding:5px 2px;}
+.te-addcard .ac-date button{border:none;background:transparent;cursor:pointer;font-size:13px;padding:0;}
+.te-addnew-btn{width:100%;margin-top:6px;}
 .te-bar{display:flex;gap:4px;margin-top:5px;flex-wrap:wrap;}
 </style>
 </head>
@@ -164,10 +207,93 @@ input[type=color]{width:100%;height:24px;border:1px solid var(--bd);border-radiu
 <div class="workspace" id="workspace">
 <aside class="sb" id="sidebar">
 
+  <!-- FIXED · EDITOR DE TAREAS (panel principal, siempre visible) -->
+  <div class="sb-fixed">
+  <div class="ss">
+    <div class="sl">Tareas
+      <button class="btn btn-s" id="btn-undo" style="padding:2px 5px;font-size:11px;margin-left:auto" onclick="doUndo()" title="Deshacer (Ctrl+Z)" disabled>↶</button>
+      <button class="btn btn-s" id="btn-redo" style="padding:2px 5px;font-size:11px" onclick="doRedo()" title="Rehacer (Ctrl+Y / Ctrl+Shift+Z)" disabled>↷</button>
+      <button class="btn btn-s" style="padding:2px 5px;font-size:9px" onclick="teVisAll(true)" title="Mostrar todas las tareas en el Gantt">👁 Todo</button>
+      <button class="btn btn-s" style="padding:2px 5px;font-size:9px" onclick="teVisAll(false)" title="Ocultar todas las tareas del Gantt">🚫 Nada</button>
+      <button class="btn btn-s" style="padding:2px 5px;font-size:9px" onclick="teCollapseAll(true)" title="Colapsar todos los streams y bloques">▶ Plegar</button>
+      <button class="btn btn-s" style="padding:2px 5px;font-size:9px" onclick="teCollapseAll(false)" title="Expandir todos los streams y bloques">▼ Desplegar</button>
+      <button class="btn btn-s" style="padding:2px 5px;font-size:9px" onclick="teImportFile()" title="Cargar CSV">📂</button>
+      <button class="btn btn-s" style="padding:2px 5px;font-size:9px" onclick="teToggleRaw()" id="te-raw-btn" title="Ver/editar CSV raw">CSV</button>
+    </div>
+
+    <!-- Editable table -->
+    <div class="te-wrap" id="te-wrap">
+      <table class="te-table" id="te-table">
+        <thead><tr>
+          <th style="width:14px"></th>
+          <th style="width:18px" title="Mostrar en el Gantt">👁</th>
+          <th style="width:180px">Tarea</th>
+          <th style="width:60px">Tipo</th>
+          <th style="width:76px">Inicio</th>
+          <th style="width:76px">Fin</th>
+          <th style="width:30px">%</th>
+          <th style="width:30px">ID</th>
+          <th style="width:60px">Dep</th>
+          <th style="width:38px" title="Días naturales (inicio→fin, inclusivo). Editable.">Días</th>
+          <th style="width:18px"></th>
+        </tr></thead>
+        <tbody id="te-tbody"></tbody>
+      </table>
+    </div>
+
+    <!-- Add task: toggle button + card -->
+    <button class="btn btn-p te-addnew-btn" id="te-addnew-btn" onclick="teToggleAddCard()">+ Añadir tarea</button>
+    <div class="te-addcard" id="te-addcard">
+      <div class="ac-grid">
+        <div class="field full"><label>Nombre</label><input type="text" id="te-name" placeholder="Nombre de la tarea"></div>
+        <div class="field"><label>Tipo</label>
+          <select id="te-tipo">
+            <option value="stream">stream</option>
+            <option value="bloque">bloque</option>
+            <option value="tarea" selected>tarea</option>
+            <option value="hito">hito</option>
+          </select>
+        </div>
+        <div class="field"><label>% avance <small style="color:var(--txm)">(opcional)</small></label><input type="text" id="te-avance" placeholder="0–100"></div>
+        <div class="field"><label>Inicio</label>
+          <div class="ac-date">
+            <input type="text" id="te-start" placeholder="dd/mm/aaaa" maxlength="10">
+            <button type="button" onclick="openFormPicker('te-start')" title="Calendario">📅</button>
+            <input type="date" id="te-start-pick" lang="es-ES" style="width:0;height:0;opacity:0;position:absolute;pointer-events:none">
+          </div>
+        </div>
+        <div class="field"><label>Fin</label>
+          <div class="ac-date">
+            <input type="text" id="te-end" placeholder="dd/mm/aaaa" maxlength="10">
+            <button type="button" onclick="openFormPicker('te-end')" title="Calendario">📅</button>
+            <input type="date" id="te-end-pick" lang="es-ES" style="width:0;height:0;opacity:0;position:absolute;pointer-events:none">
+          </div>
+        </div>
+        <div class="field full"><button class="btn btn-p" style="width:100%;padding:6px 0" onclick="teAddRow()">+ Añadir al plan</button></div>
+      </div>
+    </div>
+
+    <!-- Raw CSV (hidden by default) -->
+    <div id="te-raw-wrap" style="display:none;margin-top:6px">
+      <textarea id="csv" spellcheck="false" style="min-height:120px"></textarea>
+      <div class="te-bar">
+        <button class="btn btn-s" style="flex:1;font-size:10px" onclick="teSyncFromRaw()">↑ Aplicar CSV raw</button>
+      </div>
+      <div class="hint" style="margin-top:5px"><strong>Columnas:</strong> tarea;tipo;inicio;fin;avance;id;dep;vis;col</div>
+    </div>
+
+    <input type="file" id="fi" accept=".csv,.txt" style="display:none">
+  </div>
+  </div><!-- /sb-fixed -->
+
+  <!-- COLLAPSIBLE · AJUSTES -->
+  <div class="sb-settings collapsed" id="sb-settings">
+  <button class="sb-settings-toggle" onclick="toggleSettings()">⚙ Ajustes <span class="set-caret">▾</span></button>
+  <div class="sb-settings-body" id="sb-settings-body">
+
   <!-- TAB BAR -->
   <div class="sb-tabs" id="sb-tabs">
     <button class="sb-tab active" data-tab="layout" onclick="switchSbTab('layout')">Layout</button>
-    <button class="sb-tab" data-tab="tareas" onclick="switchSbTab('tareas')">Tareas</button>
     <button class="sb-tab" data-tab="cierres" onclick="switchSbTab('cierres')">Cierres</button>
     <button class="sb-tab" data-tab="calendario" onclick="switchSbTab('calendario')">Calendario</button>
     <button class="sb-tab" data-tab="estilo" onclick="switchSbTab('estilo')">Estilo</button>
@@ -304,83 +430,6 @@ input[type=color]{width:100%;height:24px;border:1px solid var(--bd);border-radiu
 
   </div><!-- /layout panel -->
 
-  <!-- 2 · EDITOR DE TAREAS -->
-  <div class="tab-panel" data-panel="tareas">
-  <div class="ss">
-    <div class="sl">Tareas
-      <button class="btn btn-s" style="padding:2px 5px;font-size:9px;margin-left:auto" onclick="teVisAll(true)" title="Mostrar todas las tareas en el Gantt">👁 Todo</button>
-      <button class="btn btn-s" style="padding:2px 5px;font-size:9px" onclick="teVisAll(false)" title="Ocultar todas las tareas del Gantt">🚫 Nada</button>
-      <button class="btn btn-s" style="padding:2px 5px;font-size:9px" onclick="teCollapseAll(true)" title="Colapsar todos los streams y bloques">▶ Plegar</button>
-      <button class="btn btn-s" style="padding:2px 5px;font-size:9px" onclick="teCollapseAll(false)" title="Expandir todos los streams y bloques">▼ Desplegar</button>
-      <button class="btn btn-s" style="padding:2px 5px;font-size:9px" onclick="teImportFile()" title="Cargar CSV">📂</button>
-      <button class="btn btn-s" style="padding:2px 5px;font-size:9px" onclick="teToggleRaw()" id="te-raw-btn" title="Ver/editar CSV raw">CSV</button>
-    </div>
-
-    <!-- Add task form -->
-    <div class="te-add-row">
-      <div class="field" style="margin:0"><label>Nombre</label><input type="text" id="te-name" placeholder="Nombre de la tarea"></div>
-      <div class="field" style="margin:0"><label>Tipo</label>
-        <select id="te-tipo">
-          <option value="stream">stream</option>
-          <option value="bloque">bloque</option>
-          <option value="tarea" selected>tarea</option>
-          <option value="hito">hito</option>
-        </select>
-      </div>
-      <div class="field" style="margin:0">
-        <label>Inicio</label>
-        <div style="display:flex;align-items:center;gap:1px">
-          <input type="text" id="te-start" placeholder="dd/mm/aaaa" maxlength="10" style="text-align:center">
-          <button type="button" onclick="openFormPicker('te-start')" title="Calendario" style="border:none;background:transparent;cursor:pointer;font-size:12px">📅</button>
-          <input type="date" id="te-start-pick" lang="es-ES" style="width:0;height:0;opacity:0;position:absolute;pointer-events:none">
-        </div>
-      </div>
-      <div class="field" style="margin:0">
-        <label>Fin</label>
-        <div style="display:flex;align-items:center;gap:1px">
-          <input type="text" id="te-end" placeholder="dd/mm/aaaa" maxlength="10" style="text-align:center">
-          <button type="button" onclick="openFormPicker('te-end')" title="Calendario" style="border:none;background:transparent;cursor:pointer;font-size:12px">📅</button>
-          <input type="date" id="te-end-pick" lang="es-ES" style="width:0;height:0;opacity:0;position:absolute;pointer-events:none">
-        </div>
-      </div>
-      <input type="hidden" id="te-avance" value="">
-      <div class="field" style="margin:0"><label>&nbsp;</label><button class="btn btn-p" style="width:100%;padding:4px 0" onclick="teAddRow()">+ Add</button></div>
-    </div>
-
-    <!-- Editable table -->
-    <div class="te-wrap" id="te-wrap">
-      <table class="te-table" id="te-table">
-        <thead><tr>
-          <th style="width:14px"></th>
-          <th style="width:18px" title="Mostrar en el Gantt">👁</th>
-          <th style="width:120px">Tarea</th>
-          <th style="width:60px">Tipo</th>
-          <th style="width:76px">Inicio</th>
-          <th style="width:76px">Fin</th>
-          <th style="width:30px">%</th>
-          <th style="width:30px">ID</th>
-          <th style="width:40px">Dep</th>
-          <th style="width:38px" title="Días naturales (inicio→fin, inclusivo). Editable.">Días</th>
-          <th style="width:18px"></th>
-        </tr></thead>
-        <tbody id="te-tbody"></tbody>
-      </table>
-    </div>
-
-    <!-- Raw CSV (hidden by default) -->
-    <div id="te-raw-wrap" style="display:none;margin-top:6px">
-      <textarea id="csv" spellcheck="false" style="min-height:120px"></textarea>
-      <div class="te-bar">
-        <button class="btn btn-s" style="flex:1;font-size:10px" onclick="teSyncFromRaw()">↑ Aplicar CSV raw</button>
-      </div>
-      <div class="hint" style="margin-top:5px"><strong>Columnas:</strong> tarea;tipo;inicio;fin;avance;id;dep;vis;col</div>
-    </div>
-
-    <input type="file" id="fi" accept=".csv,.txt" style="display:none">
-  </div>
-
-  </div><!-- /tareas panel -->
-
   <!-- 3 · CIERRES -->
   <div class="tab-panel" data-panel="cierres">
   <div class="ss">
@@ -449,6 +498,7 @@ input[type=color]{width:100%;height:24px;border:1px solid var(--bd);border-radiu
       <div class="field"><label>Color Today</label><input type="color" id="today-color" value="#e74c3c"></div>
     </div>
     <div class="ck-row" style="margin-top:4px"><input type="checkbox" id="show-hitos" checked><label for="show-hitos">Mostrar franja Hitos</label></div>
+    <div class="ck-row"><input type="checkbox" id="hitos-inline"><label for="hitos-inline">Hitos en línea (◆ entre las tareas)</label></div>
     <div class="ck-row"><input type="checkbox" id="show-avance" checked><label for="show-avance">Mostrar % de avance en barras</label></div>
     <div class="ck-row"><input type="checkbox" id="show-deps" checked><label for="show-deps">Mostrar flechas de dependencias</label></div>
     <div class="ck-row"><input type="checkbox" id="show-critical"><label for="show-critical">Resaltar camino crítico</label></div>
@@ -545,28 +595,14 @@ input[type=color]{width:100%;height:24px;border:1px solid var(--bd);border-radiu
   </div>
   </div><!-- /calidad panel -->
 
+  </div><!-- /sb-settings-body -->
+  </div><!-- /sb-settings -->
 </aside>
 <div class="sb-resize" id="sb-resize"></div>
+<div class="main-col">
 <main class="preview-area" id="pa">
   <div class="empty-state" id="es"><div class="big">📊</div><p>Carga un CSV o edita las tareas — el Gantt se dibuja solo.</p></div>
-  <div class="ptbar" id="tb" style="display:none">
-    <label style="display:flex;align-items:center;gap:4px;font-size:10px;cursor:pointer;user-select:none">
-      <input type="checkbox" id="edit-mode" checked>
-      ✏️ Editar
-    </label>
-    <span style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--txm);margin-left:6px">
-      <span>Zoom</span>
-      <input type="range" id="zoom" min="10" max="200" value="100" style="width:90px">
-      <span id="zval" style="min-width:32px">100%</span>
-    </span>
-    <span style="flex:1"></span>
-    <button class="btn btn-g" style="padding:4px 10px;font-size:10px" onclick="dlPNG()" title="Descargar PNG">⬇ PNG</button>
-    <button class="btn btn-s" style="padding:4px 10px;font-size:10px" onclick="dlSVG()" title="SVG vectorial para PowerPoint (tamaño cm exacto)">⬇ SVG</button>
-    <button class="btn btn-s" style="padding:4px 10px;font-size:10px" onclick="dlCSV()" title="Descargar CSV de datos">⬇ CSV</button>
-    <button class="btn btn-s" style="padding:4px 10px;font-size:10px" onclick="exportEstilos()" title="Descargar JSON con el estilo actual (layout, colores, fuentes)">⬇ Estilo</button>
-    <button class="btn btn-s" style="padding:4px 8px;font-size:10px" onclick="saveMobile()" title="Guardar/compartir en móvil">📱</button>
-  </div>
-  <div id="gc" style="display:none"><canvas id="cv"></canvas></div>
+  <div id="gc" style="display:none"><canvas id="cv"></canvas><svg id="dep-overlay"><defs><marker id="dep-arrow-marker" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#2a7a6f"/></marker></defs></svg></div>
   <!-- Summary below the plan -->
   <div id="plan-summary" style="display:none;align-self:stretch;background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:7px 12px;font-size:10px;color:var(--txm);align-items:center;gap:14px;flex-wrap:wrap">
     <span id="tbinfo">–</span>
@@ -574,6 +610,25 @@ input[type=color]{width:100%;height:24px;border:1px solid var(--bd);border-radiu
     <span id="status" class="status" style="margin:0"></span>
   </div>
 </main>
+<!-- Bottom action bar (zoom + exports) -->
+<div class="ptbar" id="tb" style="display:none">
+  <label style="display:flex;align-items:center;gap:4px;font-size:10px;cursor:pointer;user-select:none">
+    <input type="checkbox" id="edit-mode" checked>
+    ✏️ Editar
+  </label>
+  <span style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--txm);margin-left:6px">
+    <span>Zoom</span>
+    <input type="range" id="zoom" min="10" max="200" value="100" style="width:90px">
+    <span id="zval" style="min-width:32px">100%</span>
+  </span>
+  <span style="flex:1"></span>
+  <button class="btn btn-g" style="padding:4px 10px;font-size:10px" onclick="dlPNG()" title="Descargar PNG">⬇ PNG</button>
+  <button class="btn btn-s" style="padding:4px 10px;font-size:10px" onclick="dlSVG()" title="SVG vectorial para PowerPoint (tamaño cm exacto)">⬇ SVG</button>
+  <button class="btn btn-s" style="padding:4px 10px;font-size:10px" onclick="dlCSV()" title="Descargar CSV de datos">⬇ CSV</button>
+  <button class="btn btn-s" style="padding:4px 10px;font-size:10px" onclick="exportEstilos()" title="Descargar JSON con el estilo actual (layout, colores, fuentes)">⬇ Estilo</button>
+  <button class="btn btn-s" style="padding:4px 8px;font-size:10px" onclick="saveMobile()" title="Guardar/compartir en móvil">📱</button>
+</div>
+</div><!-- /main-col -->
 </div>
 
 <script>
@@ -600,7 +655,7 @@ const ALL_IDS = [
   'fst','fss','fsb','fsta','fsh','fseje',
   'ch','cst','cb','ct','cho','chol','cci','ctxs',
   'dpr','zoom','today-date','today-color',
-  'show-legend','show-today','show-hitos','show-avance','show-deps','show-critical','closure-opacity','plan-start','plan-end','show-border','border-width','border-color','canvas-w-cm','canvas-h-cm','show-years','show-quarters','show-months','show-weeks'
+  'show-legend','show-today','show-hitos','hitos-inline','show-avance','show-deps','show-critical','closure-opacity','plan-start','plan-end','show-border','border-width','border-color','canvas-w-cm','canvas-h-cm','show-years','show-quarters','show-months','show-weeks'
 ];
 
 function collectState() {
@@ -651,6 +706,55 @@ function scheduleRender(){
   const ready = cv && cv.width>0;
   clearTimeout(renderTimer);
   renderTimer=setTimeout(()=>{ if(typeof render==='function') render(); }, ready?180:500);
+}
+
+// ════════════════════════════════════════════════════════════
+// UNDO / REDO  (snapshots del CSV — fuente de verdad del plan)
+// ════════════════════════════════════════════════════════════
+let undoStack=[], redoStack=[];
+let _suppressUndo=false;
+const UNDO_MAX=120;
+
+function pushUndo(prevCsv){
+  if(_suppressUndo || prevCsv==null) return;
+  if(undoStack.length && undoStack[undoStack.length-1]===prevCsv) return;
+  undoStack.push(prevCsv);
+  if(undoStack.length>UNDO_MAX) undoStack.shift();
+  redoStack.length=0; // cualquier acción nueva invalida el redo
+  updateUndoButtons();
+}
+
+function applyCsvSnapshot(csv){
+  _suppressUndo=true;
+  document.getElementById('csv').value=csv;
+  teSyncFromRaw();                       // reconstruye teRows + teRender + scheduleSave
+  if(typeof render==='function'){ try{ render(); }catch(e){} }
+  _suppressUndo=false;
+  updateUndoButtons();
+}
+
+function doUndo(){
+  if(!undoStack.length){ st('Nada que deshacer','ok'); return; }
+  const cur=document.getElementById('csv').value;
+  const prev=undoStack.pop();
+  redoStack.push(cur);
+  applyCsvSnapshot(prev);
+  st('↶ Deshecho','ok');
+}
+
+function doRedo(){
+  if(!redoStack.length){ st('Nada que rehacer','ok'); return; }
+  const cur=document.getElementById('csv').value;
+  const next=redoStack.pop();
+  undoStack.push(cur);
+  applyCsvSnapshot(next);
+  st('↷ Rehecho','ok');
+}
+
+function updateUndoButtons(){
+  const u=document.getElementById('btn-undo'), r=document.getElementById('btn-redo');
+  if(u) u.disabled=!undoStack.length;
+  if(r) r.disabled=!redoStack.length;
 }
 
 // Open native calendar picker for an add-form date text field, write back dd/mm/aaaa
@@ -1104,13 +1208,15 @@ function evToLogical(e){
   return { x: xDev/DPR, y: yDev/DPR }; // logical px
 }
 
-// Hit-test: which bar + which zone (left/move/right)
+// Hit-test: which bar + which zone (left/move/right/dep)
+const DEP_GRAB=12; // px outside right edge for dep connector zone
 function hitTest(lx,ly){
   for(const g of EDIT_GEOM){
-    if(ly>=g.y && ly<=g.y+g.h && lx>=g.x-EDGE_PX && lx<=g.x+g.w+EDGE_PX){
+    if(ly>=g.y && ly<=g.y+g.h && lx>=g.x-EDGE_PX && lx<=g.x+g.w+DEP_GRAB){
       if(g.isHito) return { g, zone:'move' };
-      // stream and bloque: move only (they're rollups of their children)
       if(g.isStream || g.tipo==='bloque') return { g, zone:'move' };
+      // Dep connector zone: just outside right edge (non-stream, non-hito tareas)
+      if(lx > g.x+g.w) return { g, zone:'dep' };
       if(lx <= g.x+EDGE_PX) return { g, zone:'left' };
       if(lx >= g.x+g.w-EDGE_PX) return { g, zone:'right' };
       return { g, zone:'move' };
@@ -1158,6 +1264,64 @@ function hideDragTooltip(){
 }
 
 let dragState=null;
+let depDragState=null; // {fromGeom, fromCssX, fromCssY}
+
+function _getZoom(){ return (document.getElementById('zoom')||{value:100}).value/100; }
+
+function logicalToCss(lx,ly){ const z=_getZoom(); return {x:lx*z, y:ly*z}; }
+
+function updateDepOverlay(fromCss, toCss, targetGeom){
+  const svg=document.getElementById('dep-overlay'); if(!svg) return;
+  svg.style.display='block';
+  const dx=toCss.x-fromCss.x, dy=toCss.y-fromCss.y;
+  const cp=Math.max(40, Math.abs(dx)*0.55);
+  const d=`M${fromCss.x},${fromCss.y} C${fromCss.x+cp},${fromCss.y} ${toCss.x-cp},${toCss.y} ${toCss.x},${toCss.y}`;
+  const ns='http://www.w3.org/2000/svg';
+  // clear dynamic elements (keep <defs>)
+  while(svg.children.length>1) svg.removeChild(svg.lastChild);
+  if(targetGeom){
+    const tc=logicalToCss(targetGeom.x, targetGeom.y);
+    const z=_getZoom();
+    const rect=document.createElementNS(ns,'rect');
+    rect.setAttribute('x',tc.x); rect.setAttribute('y',tc.y);
+    rect.setAttribute('width',targetGeom.w*z); rect.setAttribute('height',targetGeom.h*z);
+    rect.setAttribute('rx','3'); rect.setAttribute('fill','rgba(42,122,111,0.18)');
+    rect.setAttribute('stroke','#2a7a6f'); rect.setAttribute('stroke-width','1.5');
+    svg.appendChild(rect);
+  }
+  const path=document.createElementNS(ns,'path');
+  path.setAttribute('d',d); path.setAttribute('fill','none');
+  path.setAttribute('stroke','#2a7a6f'); path.setAttribute('stroke-width','2');
+  path.setAttribute('stroke-dasharray','6,3');
+  path.setAttribute('marker-end','url(#dep-arrow-marker)');
+  svg.appendChild(path);
+  const dot=document.createElementNS(ns,'circle');
+  dot.setAttribute('cx',fromCss.x); dot.setAttribute('cy',fromCss.y);
+  dot.setAttribute('r','5'); dot.setAttribute('fill','#2a7a6f');
+  dot.setAttribute('stroke','white'); dot.setAttribute('stroke-width','1.5');
+  svg.appendChild(dot);
+}
+
+function showDepHandle(geom){
+  const svg=document.getElementById('dep-overlay'); if(!svg) return;
+  svg.style.display='block';
+  const ns='http://www.w3.org/2000/svg';
+  while(svg.children.length>1) svg.removeChild(svg.lastChild);
+  const c=logicalToCss(geom.x+geom.w, geom.y+geom.h/2);
+  const dot=document.createElementNS(ns,'circle');
+  dot.setAttribute('cx',c.x); dot.setAttribute('cy',c.y);
+  dot.setAttribute('r','5'); dot.setAttribute('fill','#2a7a6f');
+  dot.setAttribute('stroke','white'); dot.setAttribute('stroke-width','1.5');
+  dot.setAttribute('opacity','0.9');
+  svg.appendChild(dot);
+}
+
+function clearDepOverlay(){
+  const svg=document.getElementById('dep-overlay'); if(!svg) return;
+  svg.style.display='none';
+  while(svg.children.length>1) svg.removeChild(svg.lastChild);
+}
+
 function setupEditLayer(){
   const cv=document.getElementById('cv');
   if(!cv || cv._editBound) return;
@@ -1175,6 +1339,17 @@ function setupEditLayer(){
 
   cv.addEventListener('mousemove',e=>{
     if(!EDIT_ENABLED || !EDIT_CTX) return;
+    if(depDragState){
+      const cvEl=document.getElementById('cv');
+      const rect=cvEl.getBoundingClientRect();
+      const cssX=e.clientX-rect.left, cssY=e.clientY-rect.top;
+      const {x,y}=evToLogical(e);
+      const tHit=hitTest(x,y);
+      const targetGeom=(tHit && tHit.g!==depDragState.fromGeom && !tHit.g.isHito && !tHit.g.isStream) ? tHit.g : null;
+      updateDepOverlay({x:depDragState.fromCssX,y:depDragState.fromCssY},{x:cssX,y:cssY},targetGeom);
+      cvEl.style.cursor='crosshair';
+      return;
+    }
     if(dragState){
       const {x}=evToLogical(e);
       const dxPx = x - dragState.startX;
@@ -1192,8 +1367,15 @@ function setupEditLayer(){
     const {x,y}=evToLogical(e);
     const hit=hitTest(x,y);
     if(hit){
-      cv.style.cursor = hit.zone==='move' ? 'grab' : 'ew-resize';
+      if(hit.zone==='dep'){
+        cv.style.cursor='crosshair';
+        showDepHandle(hit.g);
+      } else {
+        clearDepOverlay();
+        cv.style.cursor = hit.zone==='move' ? 'grab' : 'ew-resize';
+      }
     } else {
+      clearDepOverlay();
       cv.style.cursor='default';
     }
   });
@@ -1204,6 +1386,18 @@ function setupEditLayer(){
     const hit=hitTest(x,y);
     if(!hit) return;
     e.preventDefault();
+    // Dep connector drag: starts from right side outside bar
+    if(hit.zone==='dep'){
+      const z=_getZoom();
+      const rect=cv.getBoundingClientRect();
+      depDragState={
+        fromGeom: hit.g,
+        fromCssX: (hit.g.x+hit.g.w)*z,
+        fromCssY: (hit.g.y+hit.g.h/2)*z
+      };
+      cv.style.cursor='crosshair';
+      return;
+    }
     const idx=findRowIndex(hit.g);
     if(idx<0) return;
     const row=teRows[idx];
@@ -1217,7 +1411,39 @@ function setupEditLayer(){
     cv.style.cursor = 'grabbing';
   });
 
-  window.addEventListener('mouseup',()=>{
+  cv.addEventListener('mouseleave',()=>{ if(!depDragState) clearDepOverlay(); });
+
+  window.addEventListener('mouseup',e=>{
+    if(depDragState){
+      const cvEl=document.getElementById('cv');
+      if(cvEl){
+        const rect=cvEl.getBoundingClientRect();
+        const scaleX=cvEl.width/rect.width, scaleY=cvEl.height/rect.height;
+        const DPR=EDIT_CTX?EDIT_CTX.DPR:4;
+        const lx=((e.clientX-rect.left)*scaleX)/DPR;
+        const ly=((e.clientY-rect.top)*scaleY)/DPR;
+        const tHit=hitTest(lx,ly);
+        if(tHit && tHit.g!==depDragState.fromGeom && !tHit.g.isHito && !tHit.g.isStream){
+          const fromIdx=findRowIndex(depDragState.fromGeom);
+          const toIdx=findRowIndex(tHit.g);
+          if(fromIdx>=0 && toIdx>=0 && fromIdx!==toIdx){
+            const fromRow=teRows[fromIdx];
+            const toRow=teRows[toIdx];
+            const depKey=fromRow.id||fromRow.tarea;
+            const existing=(toRow.dep_str||'').split(',').map(s=>s.trim()).filter(Boolean);
+            if(!existing.includes(depKey)){
+              existing.push(depKey);
+              toRow.dep_str=existing.join(',');
+              teSyncToRaw(); teRender(); render();
+            }
+          }
+        }
+        cvEl.style.cursor='default';
+      }
+      clearDepOverlay();
+      depDragState=null;
+      return;
+    }
     if(dragState){
       hideDragTooltip();
       dragState=null;
@@ -1381,6 +1607,7 @@ function render(){
   const SHOW_LEGEND = document.getElementById('show-legend').checked;
   const SHOW_TODAY  = document.getElementById('show-today').checked;
   const SHOW_HITOS  = document.getElementById('show-hitos').checked;
+  const HITOS_INLINE = document.getElementById('hitos-inline') ? document.getElementById('hitos-inline').checked : false;
   const SHOW_AVANCE = document.getElementById('show-avance').checked;
   const SHOW_DEPS   = document.getElementById('show-deps').checked;
   const SHOW_CRIT   = document.getElementById('show-critical').checked;
@@ -1529,7 +1756,7 @@ function render(){
   const HDR0 = YH0+QH0+PH0+SPH0;
   const RH0  = Math.max(12, +document.getElementById('rh').value || 20); // natural row height
   const FTH0 = SHOW_LEGEND ? 19 : 0;
-  const HSH0 = hitoTasks.length>0 ? 38 : 0;
+  const HSH0 = (hitoTasks.length>0 && !HITOS_INLINE) ? 38 : 0;
   const FGAP0= (SHOW_LEGEND && hitoTasks.length>0) ? 4 : 0;
   // Natural total height at scale 1.0:
   const naturalH = TH + HDR0 + NR*RH0 + HSH0 + FGAP0 + FTH0;
@@ -1554,7 +1781,7 @@ function render(){
   // Hito strip: must fit the diamond marker (top ~52%) + label (bottom ~48%).
   // Floor it so the scaled font label never clips off the bottom.
   const FSH_tmp = Math.max(4, FSH0*VSC);
-  const HSH = hitoTasks.length>0 ? Math.max(Math.round(HSH0*VSC), Math.ceil(FSH_tmp*2.6)+10) : 0;
+  const HSH = (hitoTasks.length>0 && !HITOS_INLINE) ? Math.max(Math.round(HSH0*VSC), Math.ceil(FSH_tmp*2.6)+10) : 0;
   const FGAP= Math.round(FGAP0*VSC);
 
   // Scale fonts by VSC too (kept sharp by high DPR)
@@ -1568,10 +1795,12 @@ function render(){
   // Final canvas height + row height
   let LGH, RH;
   if(cmH > 0){
-    // Fixed canvas height: rows fill exactly the space left after header + hito strip + footer
+    // Fixed canvas height: rows fill EXACTLY the space left after header + hito strip + footer.
+    // RH se ajusta al alto disponible (fraccional) para que el plan nunca se salga del área
+    // estipulada al expandir, ni deje hueco al colapsar. Las barras y fuentes ya escalan con RH/VSC.
     LGH = Math.round(cmH / CM_PER_INCH * BASE_DPI);
-    const avail = LGH - TP - HSH - FGAP - FTH;
-    RH = NR>0 ? Math.max(8, Math.floor(avail / NR)) : RH0;
+    const avail = Math.max(20, LGH - TP - HSH - FGAP - FTH);
+    RH = NR>0 ? Math.max(3, avail / NR) : RH0;
   } else {
     // Auto height: natural row height, canvas grows to fit
     RH = Math.max(8, Math.round(RH0*VSC));
@@ -2045,7 +2274,19 @@ function render(){
     ctx.fillStyle=isArtistico?'#2a2438':isMinimal?CH:(isDarkTheme||isDeloitte?'rgba(255,255,255,0.82)':'#ffffff');
     ctx.font=isArtistico?`italic bold ${FSEJE}px ${FF_E}`:`bold ${FSEJE}px ${FF_E}`;
     ctx.textAlign='center'; ctx.textBaseline='middle';
-    if(p.w>8) ctx.fillText(trunc(ctx,p.label,p.w-4),px2+p.w/2,PY+PH/2);
+    if(p.w>2){
+      // La etiqueta del mes NUNCA se trunca: encoge la fuente hasta que quepa
+      // y, si aún no cabe al mínimo, se dibuja completa (centrada) en vez de cortarla.
+      const baseFont = isArtistico?`italic bold ` : `bold `;
+      const minM = Math.max(5, FSEJE*0.55);
+      let mSize = FSEJE;
+      while(mSize > minM && ctx.measureText(p.label).width > p.w-2){
+        mSize -= 0.5;
+        ctx.font=`${baseFont}${mSize}px ${FF_E}`;
+      }
+      ctx.fillText(p.label,px2+p.w/2,PY+PH/2);
+      if(mSize!==FSEJE) ctx.font=`${baseFont}${FSEJE}px ${FF_E}`;
+    }
     // Divider — header zone full opacity, task area very faint
     const divCol = isArtistico?'rgba(212,175,55,0.28)':(isC1||isDarkTheme)?ha('#ffffff',0.12):isMinimal?ha(CH,0.10):ha(CH,0.12);
     ctx.strokeStyle=divCol; ctx.lineWidth=0.5;
@@ -2304,7 +2545,7 @@ function render(){
   });
 
   // ── HITO STRIP BACKGROUND (always if hitos exist) ──
-  if(hitoTasks.length>0){
+  if(hitoTasks.length>0 && !HITOS_INLINE){
     const hsy=TP+NR*RH;
     ctx.fillStyle=isLOTR?'#e8d5b0':isStarWars?'#06060f':isSketch?'#f5ecd4':isCobalt?'#eef3fb':isAmber?'#222222':isC1?'#f8f8f6':isChevron?'#f0f4fa':isSwimlane?bw(CH,0.90):isEjecutivo?'#fafafa':isDarkTheme?bw(CH,0.04):isDeloitte?'#f0f8e8':isModerno2?'#0e0e18':isMinimal?'#f4f4f4':isArtistico?'#e8d5b0':'#f4f3f0';
     ctx.fillRect(0,hsy,LGW,HSH);
@@ -2341,6 +2582,26 @@ function render(){
       ctx.restore();
     }
   }
+
+  // ── UNIFORM LABEL FONT SCALE ──
+  // Un único factor para que la etiqueta más larga quepa en la columna izquierda,
+  // aplicado por IGUAL a todas (tamaño de fuente uniforme, sin recortes desiguales).
+  let LBL_SCALE = 1;
+  visTasks.forEach(task=>{
+    const lv=resolveLevel(task.tipo);
+    const font = lv.isS?FF_S : lv.isB?FF_B : FF_TA;
+    const fsize= lv.isS?FSS  : lv.isB?FSB  : FSTA;
+    const fweight = lv.isS?'bold':lv.isB?'600':'400';
+    const fstyle = isArtistico ? (lv.isS?'italic ':'') : '';
+    if(isSwimlane && lv.isS) return; // estos no se dibujan en la columna
+    const txtIndent = isC1 ? (lv.isS?6:lv.isB?14:22) : isArtistico ? (lv.isS?10:lv.isB?18:26) : lv.indent;
+    const availW = LW - txtIndent - 6;
+    if(availW<=0) return;
+    ctx.font=`${fstyle}${fweight} ${fsize}px ${font}`;
+    const w=ctx.measureText(task.tarea).width;
+    if(w>availW) LBL_SCALE=Math.min(LBL_SCALE, availW/w);
+  });
+  LBL_SCALE=Math.max(0.55, LBL_SCALE); // suelo de legibilidad
 
   // ── TASK LABELS + BARS ──
   visTasks.forEach((task,i)=>{
@@ -2394,7 +2655,11 @@ function render(){
     ctx.textAlign='left'; ctx.textBaseline='middle';
     const txtIndent = isC1 ? (lv.isS?6:lv.isB?14:22) : isArtistico ? (lv.isS?10:lv.isB?18:26) : lv.indent;
     if(!(isSwimlane && lv.isS)){
-      ctx.fillText(trunc(ctx,task.tarea,LW-txtIndent-6),txtIndent,ry+RH/2);
+      const availW = LW - txtIndent - 6;
+      // Tamaño uniforme para todas las etiquetas (factor global calculado arriba).
+      if(LBL_SCALE!==1) ctx.font=`${fstyle}${fweight} ${fsize*LBL_SCALE}px ${font}`;
+      ctx.fillText(trunc(ctx,task.tarea,availW),txtIndent,ry+RH/2);
+      if(LBL_SCALE!==1) ctx.font=`${fstyle}${fweight} ${fsize}px ${font}`; // restaura
     }
 
     const sd=dmy(task.inicio),ed=dmy(task.fin)||dmy(task.inicio);
@@ -2954,11 +3219,51 @@ function render(){
     ctx.restore();
   }
 
+  // Posición vertical de cada hito inline: nº de filas (no-hito) que aparecen antes en el orden
+  const hitoRowBefore = new Map();
+  { let rb=0; for(const t of allTasks){ if(isHitoTipo(t)) hitoRowBefore.set(t, rb); else rb++; } }
+
   hitoTasks.forEach(task=>{
     const baseColor=taskColors[task.tarea]||CHO;
     const sd=dmy(task.inicio); if(!sd) return;
     const b0=Math.max(0,daysB(cs,sd));
     const hx=LW+b0*DPX;
+
+    // ── HITO EN LÍNEA (◆ entre la barra anterior y la posterior) ──
+    if(HITOS_INLINE){
+      const rb=hitoRowBefore.get(task)||0;
+      const mr=Math.min(Math.max(RH*0.45,4),8);
+      // línea divisoria entre fila anterior y posterior, sin salirse del área de tareas
+      const my=Math.max(TP+mr, Math.min(TP+rb*RH, TP+NR*RH-mr));
+      EDIT_GEOM.push({ taskRef:task, name:task.tarea, tipo:task.tipo, inicio:task.inicio, fin:task.fin,
+        x:hx-8, w:16, y:my-RH/2, h:RH, isStream:false, isHito:true, hx:hx });
+      // rombo
+      ctx.save();
+      ctx.shadowColor=ha(baseColor,0.35); ctx.shadowBlur=3; ctx.shadowOffsetY=1;
+      ctx.translate(hx,my); ctx.rotate(Math.PI/4);
+      ctx.fillStyle=baseColor; rr(ctx,-mr,-mr,mr*2,mr*2,1.5); ctx.fill();
+      ctx.restore();
+      // borde claro para contraste sobre las barras
+      ctx.save(); ctx.translate(hx,my); ctx.rotate(Math.PI/4);
+      ctx.strokeStyle=isDarkTheme?'rgba(255,255,255,0.55)':'rgba(255,255,255,0.85)';
+      ctx.lineWidth=0.75; ctx.strokeRect(-mr,-mr,mr*2,mr*2); ctx.restore();
+      // label compacto al lado del rombo, con "pill" translúcido para que lea sobre las barras
+      if(task.tarea){
+        ctx.font=`600 ${Math.max(5,FSH*0.92)}px ${FF_H}`;
+        ctx.textBaseline='middle';
+        const lbl=task.tarea, tw=ctx.measureText(lbl).width, padX=3, ph=Math.max(9,FSH+2);
+        let lx=hx+mr+4, align='left';
+        if(lx+tw+padX*2>LGW){ align='right'; lx=hx-mr-4; } // si no cabe a la derecha, va a la izquierda
+        ctx.fillStyle=isDarkTheme?'rgba(0,0,0,0.55)':'rgba(255,255,255,0.78)';
+        const bxp = align==='left' ? lx-padX : lx-tw-padX;
+        rr(ctx,bxp,my-ph/2,tw+padX*2,ph,2); ctx.fill();
+        ctx.fillStyle=FC_H||(isDarkTheme?'#ffffff':'#1a1a1a');
+        ctx.textAlign=align; ctx.fillText(lbl,lx,my);
+        ctx.textAlign='left';
+      }
+      return;
+    }
+
     // Store hito edit geometry (marker is in the hito strip)
     EDIT_GEOM.push({
       taskRef: task, name: task.tarea, tipo: task.tipo, inicio: task.inicio, fin: task.fin,
@@ -3347,6 +3652,22 @@ function toggleSidebar(){
   setTimeout(applyZoom,240);
 }
 
+// Collapse/expand the bottom "Ajustes" settings section
+function toggleSettings(force){
+  const s=document.getElementById('sb-settings'); if(!s) return;
+  if(typeof force==='boolean') s.classList.toggle('collapsed', force);
+  else s.classList.toggle('collapsed');
+}
+
+// Show/hide the add-task card
+function teToggleAddCard(){
+  const c=document.getElementById('te-addcard'); if(!c) return;
+  const open=c.classList.toggle('open');
+  const b=document.getElementById('te-addnew-btn');
+  if(b) b.textContent = open ? '× Cerrar' : '+ Añadir tarea';
+  if(open){ const n=document.getElementById('te-name'); if(n) n.focus(); }
+}
+
 // ── Sidebar resize drag ──
 
 function updateTaskMiniList(){ /* no-op in sidebar layout */ }
@@ -3427,6 +3748,7 @@ function recalcHierarchy(){
 }
 
 function teSyncToRaw(){
+  const prevCsv = document.getElementById('csv').value; // estado anterior para undo
   recalcHierarchy(); // stream/bloque always reflect their children
   const header = 'tarea;tipo;inicio;fin;avance;id;dep;vis;col';
   const lines = teRows.map(r=>[
@@ -3434,7 +3756,9 @@ function teSyncToRaw(){
     r.avance||'', r.id||'', r.dep_str||'',
     r.vis===false?'0':'', r.collapsed?'1':''
   ].join(';'));
-  document.getElementById('csv').value = [header,...lines].join('\n');
+  const newCsv = [header,...lines].join('\n');
+  if(newCsv!==prevCsv) pushUndo(prevCsv); // registra el cambio para deshacer
+  document.getElementById('csv').value = newCsv;
   scheduleSave();
   updateTaskMiniList();
   scheduleRender();
@@ -3453,6 +3777,100 @@ function teCollapseAll(on){
 }
 
 function getTipos(){ return TIPOS_BASE; }
+
+// ── DEP COMBO ──────────────────────────────────────────────────
+let _activeDepDd=null;
+let _depOutsideHandler=null;
+function _closeDepDd(){
+  if(_activeDepDd){ _activeDepDd.remove(); _activeDepDd=null; }
+  if(_depOutsideHandler){ document.removeEventListener('mousedown',_depOutsideHandler,true); _depOutsideHandler=null; }
+}
+
+function makeDepCombo(rowRef, selfIdx){
+  const wrap=document.createElement('div'); wrap.className='dep-combo';
+  const trigger=document.createElement('div'); trigger.className='dep-combo-trigger'; trigger.tabIndex=0;
+
+  const refresh=()=>{
+    trigger.innerHTML='';
+    const deps=(rowRef.dep_str||'').split(',').map(s=>s.trim()).filter(Boolean);
+    if(!deps.length){ const ph=document.createElement('span'); ph.className='dep-ph'; ph.textContent='dep'; trigger.appendChild(ph); return; }
+    deps.forEach(d=>{ const c=document.createElement('span'); c.className='dep-chip'; c.textContent=d; trigger.appendChild(c); });
+  };
+  refresh();
+
+  trigger.addEventListener('click', e=>{
+    e.stopPropagation();
+    if(_activeDepDd){ _closeDepDd(); return; }
+    const dd=document.createElement('div'); dd.className='dep-dropdown'; _activeDepDd=dd;
+    dd.addEventListener('mousedown',ev=>ev.stopPropagation()); // clics dentro no cierran
+    dd.addEventListener('click',ev=>ev.stopPropagation());
+    const curDeps=(rowRef.dep_str||'').split(',').map(s=>s.trim()).filter(Boolean);
+    let added=0;
+    teRows.forEach((r,j)=>{
+      if(j===selfIdx || !r.tarea) return;
+      // Solo se puede depender de tareas/hitos reales, no de streams/bloques
+      if(r.tipo==='stream'||r.tipo==='bloque') return;
+      const key=r.id||r.tarea;
+      const item=document.createElement('div'); item.className='dep-dd-item';
+      const ck=document.createElement('input'); ck.type='checkbox'; ck.checked=curDeps.includes(key);
+      ck.style.pointerEvents='none'; // la fila gestiona el toggle
+      const lbl=document.createElement('span'); lbl.className='dep-dd-label'; lbl.textContent=r.tarea;
+      const typ=document.createElement('span'); typ.className='dep-dd-type'; typ.textContent=r.id?`[${r.id}]`:'';
+      // clic en cualquier parte de la fila alterna la dependencia
+      item.addEventListener('click',()=>{
+        const deps=(rowRef.dep_str||'').split(',').map(s=>s.trim()).filter(Boolean);
+        const ix=deps.indexOf(key);
+        if(ix>=0) deps.splice(ix,1); else deps.push(key);
+        ck.checked=ix<0;
+        rowRef.dep_str=deps.join(',');
+        if(teRows[selfIdx]) teRows[selfIdx].dep_str=rowRef.dep_str;
+        refresh(); teSyncToRaw(); render();
+      });
+      item.appendChild(ck); item.appendChild(lbl); item.appendChild(typ);
+      dd.appendChild(item); added++;
+    });
+    if(!added){ const em=document.createElement('div'); em.style.cssText='padding:8px;font-size:9px;color:var(--txm);'; em.textContent='Sin otras tareas'; dd.appendChild(em); }
+    const rect=trigger.getBoundingClientRect();
+    // Posición: debajo del trigger; si no cabe, encima
+    let top=rect.bottom+3;
+    if(top+220>window.innerHeight) top=Math.max(6,rect.top-223);
+    dd.style.top=top+'px'; dd.style.left=Math.min(rect.left,window.innerWidth-200)+'px';
+    document.body.appendChild(dd);
+    _depOutsideHandler=function(ev){ if(!dd.contains(ev.target)) _closeDepDd(); };
+    setTimeout(()=>document.addEventListener('mousedown',_depOutsideHandler,true),0);
+  });
+
+  wrap.appendChild(trigger);
+  return wrap;
+}
+
+// ── COLUMN RESIZE ──────────────────────────────────────────────
+// Default widths match the <th style="width:..."> in HTML (index order)
+const TE_COL_DEFAULTS=[14,18,180,60,76,76,30,30,60,38,18];
+function initTeColResize(){
+  const ths=[...document.querySelectorAll('#te-table thead th')];
+  ths.forEach((th,ci)=>{
+    if(ci===0||ci===1||ci===10) return; // skip drag/vis/del columns
+    // Apply any stored width
+    if(TE_COL_DEFAULTS[ci]) th.style.width=TE_COL_DEFAULTS[ci]+'px';
+    const h=document.createElement('div'); h.className='col-resize-handle'; th.appendChild(h);
+    h.addEventListener('mousedown',e=>{
+      e.preventDefault(); e.stopPropagation();
+      const startX=e.clientX, startW=th.offsetWidth;
+      h.classList.add('col-resize-active');
+      document.body.style.cursor='col-resize';
+      const onMove=ev=>{ th.style.width=Math.max(20,startW+(ev.clientX-startX))+'px'; };
+      const onUp=()=>{
+        h.classList.remove('col-resize-active');
+        document.body.style.cursor='';
+        window.removeEventListener('mousemove',onMove);
+        window.removeEventListener('mouseup',onUp);
+      };
+      window.addEventListener('mousemove',onMove);
+      window.addEventListener('mouseup',onUp);
+    });
+  });
+}
 
 // Render the editable table
 function teRender(){
@@ -3631,7 +4049,7 @@ function teRender(){
     tr.appendChild(cell('date',row.fin,'fin',{hidden:isH}));
     tr.appendChild(cell('number',row.avance,'avance',{ph:'%'}));
     tr.appendChild(cell('text',row.id,'id',{ph:'id'}));
-    tr.appendChild(cell('text',row.dep_str,'dep_str',{ph:'dep'}));
+    const tdDep=document.createElement('td'); tdDep.appendChild(makeDepCombo(row,i)); tr.appendChild(tdDep);
     tr.appendChild(daysCell());
 
     // delete button
@@ -3717,6 +4135,19 @@ function teImportFile(){
 // ════════════════════════════════════════════════════════════
 // ── All DOM-touching code deferred until DOM ready (iOS Safari fix) ──
 function _initAll(){
+  // Undo/Redo: Ctrl-Z / Ctrl-Y (o Ctrl-Shift-Z). Respeta el undo nativo dentro de campos de texto.
+  window.addEventListener('keydown', e=>{
+    if(!(e.ctrlKey||e.metaKey)) return;
+    const k=(e.key||'').toLowerCase();
+    if(k!=='z' && k!=='y') return;
+    const t=e.target, tag=(t&&t.tagName||'').toLowerCase();
+    const inField = tag==='input'||tag==='textarea'||tag==='select'||(t&&t.isContentEditable);
+    if(inField) return; // deja el undo nativo del campo
+    if(k==='y' || (k==='z'&&e.shiftKey)){ e.preventDefault(); doRedo(); }
+    else if(k==='z'){ e.preventDefault(); doUndo(); }
+  });
+  updateUndoButtons();
+
   // Axis-level checkboxes: ensure at least one stays checked
   (function(){
     const ids=['show-years','show-quarters','show-months','show-weeks'];
@@ -3762,6 +4193,8 @@ function _initAll(){
     document.addEventListener('touchend',()=>{dragging=false;applyZoom();});
     try{const sw=localStorage.getItem('gantt_sb_width');if(sw)ws.style.setProperty('--sb-width',(+sw)+'px');}catch(e2){}
   })();
+
+  initTeColResize(); // attach resize handles to task table headers
 
   const _zoom=document.getElementById('zoom');
   if(_zoom) _zoom.addEventListener('input',function(){const zv=document.getElementById('zval');if(zv)zv.textContent=this.value+'%';applyZoom();});

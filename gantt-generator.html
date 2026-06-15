@@ -623,7 +623,8 @@ input[type=color]{width:100%;height:24px;border:1px solid var(--bd);border-radiu
   </span>
   <span style="flex:1"></span>
   <button class="btn btn-g" style="padding:4px 10px;font-size:10px" onclick="dlPNG()" title="Descargar PNG">⬇ PNG</button>
-  <button class="btn btn-s" style="padding:4px 10px;font-size:10px" onclick="dlSVG()" title="SVG vectorial para PowerPoint (tamaño cm exacto)">⬇ SVG</button>
+  <button class="btn btn-s" style="padding:4px 10px;font-size:10px" onclick="dlPPTX()" title="PowerPoint con formas editables (barras, hitos, etiquetas como objetos)">⬇ PPTX</button>
+  <button class="btn btn-s" style="padding:4px 10px;font-size:10px" onclick="dlSVG()" title="SVG (imagen) para PowerPoint (tamaño cm exacto)">⬇ SVG</button>
   <button class="btn btn-s" style="padding:4px 10px;font-size:10px" onclick="dlCSV()" title="Descargar CSV de datos">⬇ CSV</button>
   <button class="btn btn-s" style="padding:4px 10px;font-size:10px" onclick="exportEstilos()" title="Descargar JSON con el estilo actual (layout, colores, fuentes)">⬇ Estilo</button>
   <button class="btn btn-s" style="padding:4px 8px;font-size:10px" onclick="saveMobile()" title="Guardar/compartir en móvil">📱</button>
@@ -637,6 +638,7 @@ input[type=color]{width:100%;height:24px;border:1px solid var(--bd);border-radiu
 // ════════════════════════════════════════════════════════════
 let closures = [];
 let taskColors = {};
+let LAST_RENDER = null; // escena capturada en cada render() para export PPTX
 let saveTimer = null;
 let currentLayout = 'deloitte-green';
 
@@ -2608,6 +2610,9 @@ function render(){
     const ry=TP+i*RH;
     const lv=resolveLevel(task.tipo);
     const baseColor = taskColors[task.tarea] || (lv.customColor||(lv.isS?CST:lv.isB?CB:CT));
+    task._barColor = baseColor;     // para export PPTX
+    task._lvIsS = lv.isS; task._lvIsB = lv.isB;
+    task._lblIndent = (typeof lv.indent==='number'?lv.indent:6);
 
     // Font for this level
     const font = lv.isS?FF_S : lv.isB?FF_B : FF_TA;
@@ -3225,6 +3230,7 @@ function render(){
 
   hitoTasks.forEach(task=>{
     const baseColor=taskColors[task.tarea]||CHO;
+    task._hitoColor=baseColor; // para export PPTX
     const sd=dmy(task.inicio); if(!sd) return;
     const b0=Math.max(0,daysB(cs,sd));
     const hx=LW+b0*DPX;
@@ -3553,6 +3559,45 @@ function render(){
     ctx.strokeRect(hw, hw, LGW - BORDER_W, LGH - BORDER_W);
   }
 
+  // ── CAPTURA DE ESCENA PARA EXPORT PPTX (formas editables) ──
+  try{
+    // Agrupar meses por año para la banda superior
+    const yrG2={};
+    monthPeriods.forEach(p=>{const yr=p.date.getFullYear(); if(!yrG2[yr])yrG2[yr]={x0:p.x,x1:p.x+p.w,label:String(yr)};else yrG2[yr].x1=p.x+p.w;});
+    // Dependencias (pred → succ) en coords lógicas
+    const deps=[];
+    visTasks.forEach(t=>{
+      if(!t.dep||!t.dep.length||t._bx==null) return;
+      t.dep.forEach(d=>{
+        const g=barGeom[d]||barGeom['__name__'+d]; if(!g) return;
+        deps.push({fromX:g.x1, fromY:g.y, toX:t._bx, toY:t._by+t._bh/2});
+      });
+    });
+    LAST_RENDER={
+      LGW, LGH, DPR, LW, TP, RH, NR, TH, YH, QH, PH, SPH, HDR,
+      cs:new Date(cs), DPX,
+      bg:'#ffffff',
+      gridLine:'#e2ddd4',
+      headerFill:'#edeae4',
+      months: monthPeriods.map(p=>({x:p.x, w:p.w, label:p.label})),
+      years: Object.values(yrG2),
+      bars: visTasks.filter(t=>t._bx!=null).map(t=>({
+        x:t._bx, y:t._by, w:t._bw, h:t._bh,
+        color:t._barColor||'#2a7a6f',
+        isS:!!t._lvIsS, isB:!!t._lvIsB,
+        name:t.tarea||'', avance:+t.avance||0,
+        labelIndent:t._lblIndent||6
+      })),
+      hitos: hitoTasks.filter(t=>dmy(t.inicio)).map(t=>{
+        const sd=dmy(t.inicio); const hx=LW+Math.max(0,daysB(cs,sd))*DPX;
+        const rb=hitoRowBefore.get(t)||0;
+        return { hx, name:t.tarea||'', color:t._hitoColor||'#e76f51',
+                 inline:!!HITOS_INLINE, rowBefore:rb };
+      }),
+      deps
+    };
+  }catch(e){ console.warn('captura PPTX falló',e); LAST_RENDER=null; }
+
   // ── INFO ──
   const dispW=(LGW/96*2.54).toFixed(1),dispH=(LGH/96*2.54).toFixed(1);
   document.getElementById('pinfo').innerHTML=`Canvas: <b>${PW}×${PH2}px</b> (${DPR}×DPR) · ~${dispW}×${dispH}cm · <b>~${DPR*96}dpi</b>`;
@@ -3609,6 +3654,94 @@ function dlPNG(){
     document.body.appendChild(a);a.click();a.remove();
     setTimeout(()=>URL.revokeObjectURL(url),5000);
   },'image/png');
+}
+
+// ── EXPORT PPTX: formas nativas editables en PowerPoint ────────────
+function _loadScript(src){
+  return new Promise((res,rej)=>{
+    const s=document.createElement('script'); s.src=src;
+    s.onload=res; s.onerror=()=>rej(new Error('load fail'));
+    document.head.appendChild(s);
+  });
+}
+// Normaliza color (#rgb, #rrggbb, rgb(), rgba()) → 'RRGGBB'
+function _hex(c){
+  if(!c) return '888888';
+  c=String(c).trim();
+  if(c[0]==='#'){ let h=c.slice(1); if(h.length===3) h=h.split('').map(x=>x+x).join(''); return (h+'000000').slice(0,6).toUpperCase(); }
+  const m=c.match(/rgba?\(([^)]+)\)/i);
+  if(m){ const p=m[1].split(',').map(s=>parseFloat(s)); return p.slice(0,3).map(n=>('0'+Math.round(n).toString(16)).slice(-2)).join('').toUpperCase(); }
+  return '888888';
+}
+
+async function dlPPTX(){
+  if(!LAST_RENDER){ st('Genera el plan primero.','err'); return; }
+  st('Generando PPTX…','ok');
+  let PptxGen=window.PptxGenJS;
+  if(!PptxGen){
+    try{ await _loadScript('https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js'); PptxGen=window.PptxGenJS; }
+    catch(e){ st('No se pudo cargar la librería PPTX (requiere conexión).','err'); return; }
+  }
+  if(!PptxGen){ st('PptxGenJS no disponible.','err'); return; }
+
+  const R=LAST_RENDER, IN=v=>+(v/96).toFixed(3), PT=px=>Math.max(5,Math.round(px*0.72));
+  const pptx=new PptxGen();
+  const Wi=IN(R.LGW), Hi=IN(R.LGH);
+  pptx.defineLayout({name:'GANTT',width:Wi,height:Hi}); pptx.layout='GANTT';
+  const slide=pptx.addSlide();
+  slide.background={color:_hex(R.bg)};
+  const rect=pptx.ShapeType.rect, rr=pptx.ShapeType.roundRect, diamond=pptx.ShapeType.diamond, line=pptx.ShapeType.line;
+  const LWx=R.LW;
+
+  // Banda de años
+  R.years.forEach(y=>{
+    const x=IN(LWx+y.x0), w=IN(y.x1-y.x0);
+    slide.addShape(rect,{x,y:IN(R.TH),w,h:IN(R.YH),fill:{color:'D8D4CB'},line:{color:'FFFFFF',width:0.5}});
+    if(R.YH>3) slide.addText(y.label,{x,y:IN(R.TH),w,h:IN(R.YH),fontSize:PT(R.YH*0.62),align:'center',valign:'middle',bold:true,color:'444444',margin:0});
+  });
+  // Banda de meses
+  const monY=R.TH+R.YH+R.QH;
+  R.months.forEach(m=>{
+    const x=IN(LWx+m.x), w=IN(m.w);
+    slide.addShape(rect,{x,y:IN(monY),w,h:IN(R.PH),fill:{color:'EDEAE4'},line:{color:'FFFFFF',width:0.5}});
+    if(R.PH>3&&m.w>4) slide.addText(m.label,{x,y:IN(monY),w,h:IN(R.PH),fontSize:PT(R.PH*0.55),align:'center',valign:'middle',color:'666666',margin:0,fit:'shrink'});
+  });
+
+  // Barras + etiquetas a la izquierda
+  R.bars.forEach(b=>{
+    const col=_hex(b.color);
+    // etiqueta en la columna izquierda
+    if(b.name) slide.addText(b.name,{x:IN(b.labelIndent),y:IN(b.y),w:IN(LWx-b.labelIndent-4),h:IN(b.h),fontSize:PT(Math.min(b.h*0.5,13)),align:'left',valign:'middle',bold:b.isS||b.isB,color:b.isS?'1A5C53':(b.isB?'2A7A6F':'333333'),margin:0,fit:'shrink'});
+    // barra
+    slide.addShape(rr,{x:IN(b.x),y:IN(b.y),w:IN(Math.max(b.w,1)),h:IN(b.h),rectRadius:IN(Math.min(b.h/2,3)),fill:{color:col},line:{type:'none'}});
+    // overlay de avance
+    if(b.avance>0&&b.avance<100&&!b.isS){
+      slide.addShape(rect,{x:IN(b.x),y:IN(b.y+b.h*0.65),w:IN(Math.max(b.w*b.avance/100,1)),h:IN(b.h*0.3),fill:{color:'FFFFFF',transparency:55},line:{type:'none'}});
+    }
+  });
+
+  // Hitos (rombo)
+  R.hitos.forEach(h=>{
+    const sz=Math.min(R.RH*0.7,12);
+    let cy;
+    if(h.inline){ cy=R.TP+h.rowBefore*R.RH; } else { cy=R.TP+R.NR*R.RH+sz; }
+    slide.addShape(diamond,{x:IN(h.hx-sz/2),y:IN(cy-sz/2),w:IN(sz),h:IN(sz),fill:{color:_hex(h.color)},line:{color:'FFFFFF',width:0.75}});
+    if(h.name) slide.addText(h.name,{x:IN(h.hx+sz/2+2),y:IN(cy-sz),w:IN(120),h:IN(sz*2),fontSize:PT(sz*0.7),align:'left',valign:'middle',color:'444444',margin:0});
+  });
+
+  // Dependencias (conector con flecha)
+  R.deps.forEach(d=>{
+    const x1=d.fromX, y1=d.fromY, x2=d.toX, y2=d.toY;
+    const x=Math.min(x1,x2), y=Math.min(y1,y2), w=Math.abs(x2-x1)||1, h=Math.abs(y2-y1)||1;
+    slide.addShape(line,{x:IN(x),y:IN(y),w:IN(w),h:IN(h),
+      line:{color:'555555',width:1,endArrowType:'triangle',beginArrowType:'none'},
+      flipH:x2<x1, flipV:y2<y1});
+  });
+
+  try{
+    await pptx.writeFile({fileName:'gantt-editable.pptx'});
+    st('✓ PPTX exportado — formas editables en PowerPoint','ok');
+  }catch(e){ st('Error al escribir PPTX: '+e.message,'err'); }
 }
 
 async function saveMobile(){

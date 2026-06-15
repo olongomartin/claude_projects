@@ -2389,6 +2389,26 @@ function render(){
     }
   }
 
+  // ── UNIFORM LABEL FONT SCALE ──
+  // Un único factor para que la etiqueta más larga quepa en la columna izquierda,
+  // aplicado por IGUAL a todas (tamaño de fuente uniforme, sin recortes desiguales).
+  let LBL_SCALE = 1;
+  visTasks.forEach(task=>{
+    const lv=resolveLevel(task.tipo);
+    const font = lv.isS?FF_S : lv.isB?FF_B : FF_TA;
+    const fsize= lv.isS?FSS  : lv.isB?FSB  : FSTA;
+    const fweight = lv.isS?'bold':lv.isB?'600':'400';
+    const fstyle = isArtistico ? (lv.isS?'italic ':'') : '';
+    if(isSwimlane && lv.isS) return; // estos no se dibujan en la columna
+    const txtIndent = isC1 ? (lv.isS?6:lv.isB?14:22) : isArtistico ? (lv.isS?10:lv.isB?18:26) : lv.indent;
+    const availW = LW - txtIndent - 6;
+    if(availW<=0) return;
+    ctx.font=`${fstyle}${fweight} ${fsize}px ${font}`;
+    const w=ctx.measureText(task.tarea).width;
+    if(w>availW) LBL_SCALE=Math.min(LBL_SCALE, availW/w);
+  });
+  LBL_SCALE=Math.max(0.55, LBL_SCALE); // suelo de legibilidad
+
   // ── TASK LABELS + BARS ──
   visTasks.forEach((task,i)=>{
     const ry=TP+i*RH;
@@ -2442,16 +2462,10 @@ function render(){
     const txtIndent = isC1 ? (lv.isS?6:lv.isB?14:22) : isArtistico ? (lv.isS?10:lv.isB?18:26) : lv.indent;
     if(!(isSwimlane && lv.isS)){
       const availW = LW - txtIndent - 6;
-      // Auto-ajuste: encoge la fuente hasta que la etiqueta quepa (mínimo ~60% del tamaño),
-      // y solo trunca con … si aún no entra al tamaño mínimo.
-      const minSize = Math.max(6, fsize*0.6);
-      let lblSize = fsize;
-      while(lblSize > minSize && ctx.measureText(task.tarea).width > availW){
-        lblSize -= 0.5;
-        ctx.font=`${fstyle}${fweight} ${lblSize}px ${font}`;
-      }
+      // Tamaño uniforme para todas las etiquetas (factor global calculado arriba).
+      if(LBL_SCALE!==1) ctx.font=`${fstyle}${fweight} ${fsize*LBL_SCALE}px ${font}`;
       ctx.fillText(trunc(ctx,task.tarea,availW),txtIndent,ry+RH/2);
-      if(lblSize!==fsize) ctx.font=`${fstyle}${fweight} ${fsize}px ${font}`; // restaura
+      if(LBL_SCALE!==1) ctx.font=`${fstyle}${fweight} ${fsize}px ${font}`; // restaura
     }
 
     const sd=dmy(task.inicio),ed=dmy(task.fin)||dmy(task.inicio);

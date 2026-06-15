@@ -334,6 +334,7 @@ input[type=color]{width:100%;height:24px;border:1px solid var(--bd);border-radiu
       <table class="te-table" id="te-table">
         <thead><tr>
           <th style="width:14px"></th>
+          <th style="width:18px" title="Mostrar en el Gantt">👁</th>
           <th style="width:120px">Tarea</th>
           <th style="width:60px">Tipo</th>
           <th style="width:76px">Inicio</th>
@@ -342,6 +343,7 @@ input[type=color]{width:100%;height:24px;border:1px solid var(--bd);border-radiu
           <th style="width:30px">ID</th>
           <th style="width:40px">Dep</th>
           <th style="width:38px" title="Días naturales (inicio→fin, inclusivo). Editable.">Días</th>
+          <th style="width:18px" title="Colapsar/expandir">⊞</th>
           <th style="width:18px"></th>
         </tr></thead>
         <tbody id="te-tbody"></tbody>
@@ -1271,6 +1273,22 @@ function render(){
   if(!csvTxt.trim()){st('Pega o carga un CSV primero.','err');return;}
   const allTasks=parseCSV(csvTxt);
   if(!allTasks.length){st('No se pudieron leer tareas.','err');return;}
+
+  // Filter out hidden rows (vis=false or children of collapsed stream/bloque)
+  {
+    const _h=new Set();
+    for(let k=0;k<allTasks.length;k++){
+      if(allTasks[k].vis===false){_h.add(k);continue;}
+      if((allTasks[k].tipo==='stream'||allTasks[k].tipo==='bloque')&&allTasks[k].collapsed){
+        for(let m=k+1;m<allTasks.length;m++){
+          if(allTasks[k].tipo==='stream'&&allTasks[m].tipo==='stream')break;
+          if(allTasks[k].tipo==='bloque'&&(allTasks[m].tipo==='bloque'||allTasks[m].tipo==='stream'))break;
+          _h.add(m);
+        }
+      }
+    }
+    allTasks.splice(0,allTasks.length,...allTasks.filter((_,k)=>!_h.has(k)));
+  }
 
   let minD=null,maxD=null;
   for(const t of allTasks){
@@ -3400,7 +3418,23 @@ function getTipos(){ return TIPOS_BASE; }
 function teRender(){
   const tbody = document.getElementById('te-tbody');
   tbody.innerHTML = '';
+
+  // Precompute which rows are hidden by a collapsed parent
+  const hiddenByCollapse = new Set();
+  for(let k=0;k<teRows.length;k++){
+    const rk=teRows[k];
+    if((rk.tipo==='stream'||rk.tipo==='bloque') && rk.collapsed){
+      for(let m=k+1;m<teRows.length;m++){
+        const rm=teRows[m];
+        if(rk.tipo==='stream' && rm.tipo==='stream') break;
+        if(rk.tipo==='bloque' && (rm.tipo==='bloque'||rm.tipo==='stream')) break;
+        hiddenByCollapse.add(m);
+      }
+    }
+  }
+
   teRows.forEach((row,i)=>{
+    if(hiddenByCollapse.has(i)) return;
     const isS = row.tipo==='stream';
     const isH = row.tipo==='hito';
     const tr = document.createElement('tr');
@@ -3412,6 +3446,16 @@ function teRender(){
     const tdDrag = document.createElement('td');
     tdDrag.className='td-drag'; tdDrag.textContent='⠿';
     tr.appendChild(tdDrag);
+
+    // visibility checkbox
+    const tdVis = document.createElement('td');
+    const ckVis = document.createElement('input'); ckVis.type='checkbox';
+    ckVis.checked = row.vis !== false;
+    ckVis.style.cssText='accent-color:var(--ac);width:11px;height:11px;cursor:pointer;';
+    ckVis.title = 'Mostrar en el Gantt';
+    ckVis.onchange = () => { teRows[i].vis = ckVis.checked; teSyncToRaw(); };
+    tdVis.style.cssText='text-align:center;width:18px;';
+    tdVis.appendChild(ckVis); tr.appendChild(tdVis);
 
     // helper: editable cell
     const cell=(type,val,key,opts={})=>{
@@ -3502,6 +3546,19 @@ function teRender(){
     tr.appendChild(cell('text',row.id,'id',{ph:'id'}));
     tr.appendChild(cell('text',row.dep_str,'dep_str',{ph:'dep'}));
     tr.appendChild(daysCell());
+
+    // collapse toggle (stream/bloque only)
+    const tdCol = document.createElement('td');
+    tdCol.style.cssText='text-align:center;width:18px;';
+    if(isS || row.tipo==='bloque'){
+      const btnC = document.createElement('button');
+      btnC.textContent = row.collapsed ? '▶' : '▼';
+      btnC.title = row.collapsed ? 'Expandir' : 'Colapsar';
+      btnC.style.cssText='background:none;border:none;cursor:pointer;font-size:10px;color:var(--txm);padding:0;line-height:1;';
+      btnC.onclick = () => { teRows[i].collapsed = !teRows[i].collapsed; teSyncToRaw(); teRender(); };
+      tdCol.appendChild(btnC);
+    }
+    tr.appendChild(tdCol);
 
     // delete button
     const tdDel=document.createElement('td'); tdDel.className='td-del';

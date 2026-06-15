@@ -32,7 +32,7 @@ header h1{font-size:14px;font-weight:600;color:var(--ac);}
 .sb{background:var(--sf);border-right:none;overflow:hidden;display:flex;flex-direction:column;transition:transform .22s ease,opacity .18s ease;}
 /* Tareas fixed top + collapsible settings (ergonomics rework) */
 .sb-fixed{flex:1 1 auto;overflow-y:auto;min-height:140px;display:flex;flex-direction:column;}
-.sb-settings{flex:0 0 auto;display:flex;flex-direction:column;min-height:0;border-top:2px solid var(--bd);background:var(--sf);}
+.sb-settings{order:-1;flex:0 0 auto;display:flex;flex-direction:column;min-height:0;border-bottom:2px solid var(--bd);background:var(--sf);}
 .sb-settings-toggle{display:flex;align-items:center;gap:6px;width:100%;border:none;background:var(--sf2);color:var(--ac);font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:1px;text-transform:uppercase;font-weight:600;padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--bd);}
 .sb-settings-toggle:hover{background:var(--acl);}
 .sb-settings-toggle .set-caret{margin-left:auto;font-size:11px;transition:transform .18s;}
@@ -265,7 +265,7 @@ input[type=color]{width:100%;height:24px;border:1px solid var(--bd);border-radiu
   </div><!-- /sb-fixed -->
 
   <!-- COLLAPSIBLE · AJUSTES -->
-  <div class="sb-settings" id="sb-settings">
+  <div class="sb-settings collapsed" id="sb-settings">
   <button class="sb-settings-toggle" onclick="toggleSettings()">⚙ Ajustes <span class="set-caret">▾</span></button>
   <div class="sb-settings-body" id="sb-settings-body">
 

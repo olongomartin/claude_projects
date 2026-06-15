@@ -308,7 +308,9 @@ input[type=color]{width:100%;height:24px;border:1px solid var(--bd);border-radiu
   <div class="tab-panel" data-panel="tareas">
   <div class="ss">
     <div class="sl">Tareas
-      <button class="btn btn-s" style="padding:2px 5px;font-size:9px;margin-left:auto" onclick="teImportFile()" title="Cargar CSV">📂</button>
+      <button class="btn btn-s" style="padding:2px 5px;font-size:9px;margin-left:auto" onclick="teVisAll(true)" title="Mostrar todas las tareas en el Gantt">👁 Todo</button>
+      <button class="btn btn-s" style="padding:2px 5px;font-size:9px" onclick="teVisAll(false)" title="Ocultar todas las tareas del Gantt">🚫 Nada</button>
+      <button class="btn btn-s" style="padding:2px 5px;font-size:9px" onclick="teImportFile()" title="Cargar CSV">📂</button>
       <button class="btn btn-s" style="padding:2px 5px;font-size:9px" onclick="teToggleRaw()" id="te-raw-btn" title="Ver/editar CSV raw">CSV</button>
     </div>
 
@@ -3423,6 +3425,12 @@ function teSyncToRaw(){
   scheduleSave();
   updateTaskMiniList();
   scheduleRender();
+}
+
+// Marcar/desmarcar la visibilidad de todas las filas a la vez
+function teVisAll(on){
+  teRows.forEach(r=>{ r.vis = !!on; });
+  teSyncToRaw(); teRender();
 }
 
 function getTipos(){ return TIPOS_BASE; }

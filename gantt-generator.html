@@ -3478,7 +3478,18 @@ function teRender(){
     ckVis.checked = row.vis !== false;
     ckVis.style.cssText='accent-color:var(--ac);width:11px;height:11px;cursor:pointer;';
     ckVis.title = 'Mostrar en el Gantt';
-    ckVis.onchange = () => { teRows[i].vis = ckVis.checked; teSyncToRaw(); };
+    ckVis.onchange = () => {
+      teRows[i].vis = ckVis.checked;
+      // Cascade to children if this is a stream or bloque
+      if(isS || isB){
+        for(let m=i+1;m<teRows.length;m++){
+          if(isS && teRows[m].tipo==='stream') break;
+          if(isB && (teRows[m].tipo==='bloque'||teRows[m].tipo==='stream')) break;
+          teRows[m].vis = ckVis.checked;
+        }
+      }
+      teSyncToRaw(); teRender();
+    };
     tdVis.style.cssText='text-align:center;width:18px;';
     tdVis.appendChild(ckVis); tr.appendChild(tdVis);
 

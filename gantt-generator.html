@@ -211,7 +211,9 @@ input[type=color]{width:100%;height:24px;border:1px solid var(--bd);border-radiu
   <div class="sb-fixed">
   <div class="ss">
     <div class="sl">Tareas
-      <button class="btn btn-s" style="padding:2px 5px;font-size:9px;margin-left:auto" onclick="teVisAll(true)" title="Mostrar todas las tareas en el Gantt">👁 Todo</button>
+      <button class="btn btn-s" id="btn-undo" style="padding:2px 5px;font-size:11px;margin-left:auto" onclick="doUndo()" title="Deshacer (Ctrl+Z)" disabled>↶</button>
+      <button class="btn btn-s" id="btn-redo" style="padding:2px 5px;font-size:11px" onclick="doRedo()" title="Rehacer (Ctrl+Y / Ctrl+Shift+Z)" disabled>↷</button>
+      <button class="btn btn-s" style="padding:2px 5px;font-size:9px" onclick="teVisAll(true)" title="Mostrar todas las tareas en el Gantt">👁 Todo</button>
       <button class="btn btn-s" style="padding:2px 5px;font-size:9px" onclick="teVisAll(false)" title="Ocultar todas las tareas del Gantt">🚫 Nada</button>
       <button class="btn btn-s" style="padding:2px 5px;font-size:9px" onclick="teCollapseAll(true)" title="Colapsar todos los streams y bloques">▶ Plegar</button>
       <button class="btn btn-s" style="padding:2px 5px;font-size:9px" onclick="teCollapseAll(false)" title="Expandir todos los streams y bloques">▼ Desplegar</button>
@@ -614,8 +616,6 @@ input[type=color]{width:100%;height:24px;border:1px solid var(--bd);border-radiu
     <input type="checkbox" id="edit-mode" checked>
     ✏️ Editar
   </label>
-  <button class="btn btn-s" id="btn-undo" style="padding:4px 8px;font-size:11px" onclick="doUndo()" title="Deshacer (Ctrl+Z)" disabled>↶</button>
-  <button class="btn btn-s" id="btn-redo" style="padding:4px 8px;font-size:11px" onclick="doRedo()" title="Rehacer (Ctrl+Y / Ctrl+Shift+Z)" disabled>↷</button>
   <span style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--txm);margin-left:6px">
     <span>Zoom</span>
     <input type="range" id="zoom" min="10" max="200" value="100" style="width:90px">

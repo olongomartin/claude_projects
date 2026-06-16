@@ -3290,21 +3290,20 @@ function render(){
     ctx.restore();
   }
 
-  // Mapa predecesora de cada hito (para modo on-pred)
-  // Lookup: dep explícita → tarea inmediatamente anterior en el plan → última barra visible
-  const hitoOnPredY = new Map();
+  // Mapa predecesora de cada hito (para modo on-pred): {cx=borde dcho pred, cy=centro fila}
+  // Lookup: dep explicita -> ultima tarea visible con fin <= fecha hito
+  const hitoOnPred = new Map();
   if(HITOS_ON_PRED){
-    // index visTasks by order for "previous task" fallback
     const visTaskList = visTasks.filter(t=>t._bx!=null);
     hitoTasks.forEach(task=>{
-      // 1) dep explícita
+      // 1) dep explicita
       let found=false;
       for(const d of (task.dep||[])){
         const g=barGeom[d]||barGeom['__name__'+d];
-        if(g){ hitoOnPredY.set(task, g.y); found=true; break; }
+        if(g){ hitoOnPred.set(task, {cx:g.x1, cy:g.y}); found=true; break; }
       }
       if(found) return;
-      // 2) tarea visible cuya fecha fin sea <= fecha del hito y esté en el mismo bloque/stream (o sea simplemente la última antes)
+      // 2) ultima tarea visible cuya fecha fin sea <= fecha del hito
       const hDate=dmy(task.inicio);
       if(!hDate) return;
       let bestTask=null;
@@ -3314,7 +3313,7 @@ function render(){
       }
       if(bestTask){
         const g=barGeom[bestTask.id]||barGeom['__name__'+bestTask.tarea];
-        if(g) hitoOnPredY.set(task, g.y);
+        if(g) hitoOnPred.set(task, {cx:g.x1, cy:g.y});
       }
     });
   }
@@ -3334,25 +3333,27 @@ function render(){
     if(HITOS_INLINE || HITOS_ON_PRED){
       const rb=hitoRowBefore.get(task)||0;
       const mr=Math.min(Math.max(RH*0.45,4),8);
-      let my;
-      if(HITOS_ON_PRED && hitoOnPredY.has(task)){
-        my = hitoOnPredY.get(task);
+      let mx=hx, my;
+      if(HITOS_ON_PRED && hitoOnPred.has(task)){
+        const pred=hitoOnPred.get(task);
+        mx = pred.cx; // borde derecho de la barra predecesora
+        my = pred.cy; // centro vertical de la fila predecesora
       } else {
         my = Math.max(TP+mr, Math.min(TP+rb*RH, TP+NR*RH-mr));
       }
       EDIT_GEOM.push({ taskRef:task, name:task.tarea, tipo:task.tipo, inicio:task.inicio, fin:task.fin,
-        x:hx-8, w:16, y:my-RH/2, h:RH, isStream:false, isHito:true, hx:hx });
+        x:mx-8, w:16, y:my-RH/2, h:RH, isStream:false, isHito:true, hx:mx });
       ctx.save();
       ctx.shadowColor=ha(baseColor,0.35); ctx.shadowBlur=3; ctx.shadowOffsetY=1;
-      drawHitoShape(hx, my, mr, baseColor, HITO_SHAPE);
+      drawHitoShape(mx, my, mr, baseColor, HITO_SHAPE);
       ctx.restore();
       // label compacto al lado, con "pill" translúcido
       if(task.tarea){
         ctx.font=`600 ${Math.max(5,FSH*0.92)}px ${FF_H}`;
         ctx.textBaseline='middle';
         const lbl=task.tarea, tw=ctx.measureText(lbl).width, padX=3, ph=Math.max(9,FSH+2);
-        let lx=hx+mr+4, align='left';
-        if(lx+tw+padX*2>LGW){ align='right'; lx=hx-mr-4; }
+        let lx=mx+mr+4, align='left';
+        if(lx+tw+padX*2>LGW){ align='right'; lx=mx-mr-4; }
         ctx.fillStyle=isDarkTheme?'rgba(0,0,0,0.55)':'rgba(255,255,255,0.78)';
         const bxp = align==='left' ? lx-padX : lx-tw-padX;
         rr(ctx,bxp,my-ph/2,tw+padX*2,ph,2); ctx.fill();

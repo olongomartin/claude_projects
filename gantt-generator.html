@@ -3751,9 +3751,14 @@ async function dlPPTX(){
     slide.addShape(rect,{x:P(0),y:P(0),w:IN(R.LGW),h:IN(R.TH),fill:{color:CH},line:{type:'none'}});
     if(R.title) slide.addText(R.title,{x:P(10),y:P(0),w:IN(R.LGW-20),h:IN(R.TH),fontSize:PT(R.FST||14),align:'left',valign:'middle',bold:true,color:_contrast(CH),margin:0,wrap:false,fit:'shrink'});
   }
-  // Título en la zona izquierda de la banda de años (caso habitual TH=0)
-  if(R.TH<=4 && R.title && R.YH>4){
-    slide.addText(R.title,{x:P(8),y:P(R.TH),w:IN(LWx-10),h:IN(R.YH),fontSize:PT(Math.min(R.YH*0.62,14)),align:'left',valign:'middle',bold:true,color:_contrast(HD.yearFill||CH),margin:0,wrap:false,fit:'shrink'});
+  // Título en la zona izquierda de la primera banda de cabecera disponible (año > trimestre > mes > semana)
+  if(R.TH<=4 && R.title){
+    const _tbH = R.YH>4 ? R.YH : R.QH>4 ? R.QH : R.PH>4 ? R.PH : R.SPH>4 ? R.SPH : 0;
+    const _tbY = R.TH; // justo debajo del TH (siempre 0 en la práctica)
+    const _tbColor = R.YH>4 ? (HD.yearFill||CH) : CH; // fondo de la banda donde cae
+    if(_tbH>4){
+      slide.addText(R.title,{x:P(8),y:P(_tbY),w:IN(LWx-10),h:IN(_tbH),fontSize:PT(Math.min(_tbH*0.62,14)),align:'left',valign:'middle',bold:true,color:_contrast(_tbColor),margin:0,wrap:false,fit:'shrink'});
+    }
   }
 
   // ── FONDO DE CABECERA ──

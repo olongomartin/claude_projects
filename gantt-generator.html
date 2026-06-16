@@ -1549,31 +1549,16 @@ function render(){
   if(!allTasks.length){st('No se pudieron leer tareas.','err');return;}
 
   // Filter out hidden rows (vis=false or children of collapsed stream/bloque)
-  // Hitos at root level inherit visibility from the last stream/bloque that precedes them in CSV
   {
     const _h=new Set();
-    // Track which streams/bloques are collapsed, with their date ranges
-    const collapsedRanges=[]; // [{tipo, start, end}] date ranges of collapsed containers
     for(let k=0;k<allTasks.length;k++){
       if(allTasks[k].vis===false){_h.add(k);continue;}
       if((allTasks[k].tipo==='stream'||allTasks[k].tipo==='bloque')&&allTasks[k].collapsed){
-        // Collect children range
-        const cStart=dmy(allTasks[k].inicio), cEnd=dmy(allTasks[k].fin)||cStart;
-        if(cStart&&cEnd) collapsedRanges.push({s:cStart,e:cEnd});
         for(let m=k+1;m<allTasks.length;m++){
           if(allTasks[k].tipo==='stream'&&allTasks[m].tipo==='stream')break;
           if(allTasks[k].tipo==='bloque'&&(allTasks[m].tipo==='bloque'||allTasks[m].tipo==='stream'))break;
           _h.add(m);
         }
-      }
-    }
-    // Hide root-level hitos whose date falls inside a collapsed stream/bloque range
-    for(let k=0;k<allTasks.length;k++){
-      if(_h.has(k)) continue;
-      if(allTasks[k].tipo!=='hito'&&allTasks[k].tipo!=='milestone'&&allTasks[k].tipo!=='m') continue;
-      const hd=dmy(allTasks[k].inicio); if(!hd) continue;
-      for(const r of collapsedRanges){
-        if(hd>=r.s&&hd<=r.e){ _h.add(k); break; }
       }
     }
     allTasks.splice(0,allTasks.length,...allTasks.filter((_,k)=>!_h.has(k)));

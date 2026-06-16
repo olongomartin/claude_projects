@@ -3291,12 +3291,30 @@ function render(){
   }
 
   // Mapa predecesora de cada hito (para modo on-pred)
+  // Lookup: dep explícita → tarea inmediatamente anterior en el plan → última barra visible
   const hitoOnPredY = new Map();
   if(HITOS_ON_PRED){
+    // index visTasks by order for "previous task" fallback
+    const visTaskList = visTasks.filter(t=>t._bx!=null);
     hitoTasks.forEach(task=>{
+      // 1) dep explícita
+      let found=false;
       for(const d of (task.dep||[])){
         const g=barGeom[d]||barGeom['__name__'+d];
-        if(g){ hitoOnPredY.set(task, g.y+RH/2); break; }
+        if(g){ hitoOnPredY.set(task, g.y); found=true; break; }
+      }
+      if(found) return;
+      // 2) tarea visible cuya fecha fin sea <= fecha del hito y esté en el mismo bloque/stream (o sea simplemente la última antes)
+      const hDate=dmy(task.inicio);
+      if(!hDate) return;
+      let bestTask=null;
+      for(const vt of visTaskList){
+        const vtEnd=dmy(vt.fin||vt.inicio);
+        if(vtEnd && vtEnd<=hDate) bestTask=vt;
+      }
+      if(bestTask){
+        const g=barGeom[bestTask.id]||barGeom['__name__'+bestTask.tarea];
+        if(g) hitoOnPredY.set(task, g.y);
       }
     });
   }

@@ -3830,15 +3830,8 @@ async function dlPPTX(){
     slide.addShape(rect,{x:P(0),y:P(0),w:IN(R.LGW),h:IN(R.TH),fill:{color:CH},line:{type:'none'}});
     if(R.title) slide.addText(R.title,{x:P(10),y:P(0),w:IN(R.LGW-20),h:IN(R.TH),fontSize:PT(R.FST||14),align:'left',valign:'middle',bold:true,color:_contrast(CH),margin:0,wrap:false,fit:'shrink'});
   }
-  // Título en la zona izquierda de la primera banda de cabecera disponible (año > trimestre > mes > semana)
-  if(R.TH<=4 && R.title){
-    const _tbH = R.YH>4 ? R.YH : R.QH>4 ? R.QH : R.PH>4 ? R.PH : R.SPH>4 ? R.SPH : 0;
-    const _tbY = R.TH; // justo debajo del TH (siempre 0 en la práctica)
-    const _tbColor = R.YH>4 ? (HD.yearFill||CH) : CH; // fondo de la banda donde cae
-    if(_tbH>4){
-      slide.addText(R.title,{x:P(8),y:P(_tbY),w:IN(LWx-10),h:IN(_tbH),fontSize:PT(Math.min(_tbH*0.62,14)),align:'left',valign:'middle',bold:true,color:_contrast(_tbColor),margin:0,wrap:false,fit:'shrink'});
-    }
-  }
+  // Nota: el título en banda de cabecera (TH<=4) se añade DESPUÉS de dibujar las bandas
+  // para que quede encima y no sea tapado por el fondo de cabecera.
 
   // ── FONDO DE CABECERA ──
   slide.addShape(rect,{x:P(0),y:P(R.TH),w:IN(R.LGW),h:IN(R.HDR),fill:{color:HD.lhdr||'EDEAE4'},line:{type:'none'}});
@@ -3878,6 +3871,16 @@ async function dlPPTX(){
     slide.addShape(rect,{x,y:P(monY),w,h:IN(R.PH),fill:{color:fill},line:{color:'FFFFFF',width:0.75}});
     if(R.PH>4&&m.w>6) slide.addText(m.label,{x,y:P(monY),w,h:IN(R.PH),fontSize:PT(Math.min(R.PH*0.62,m.w*0.9)),align:'center',valign:'middle',bold:true,color:_contrast(fill),margin:0,wrap:false,fit:'shrink'});
   });
+
+  // ── TÍTULO en zona izquierda de la primera banda (encima de todo lo anterior) ──
+  if(R.TH<=4 && R.title){
+    const _tbH = R.YH>4 ? R.YH : R.QH>4 ? R.QH : R.PH>4 ? R.PH : R.SPH>4 ? R.SPH : 0;
+    const _tbY = R.TH;
+    const _tbColor = R.YH>4 ? (HD.yearFill||CH) : CH;
+    if(_tbH>4){
+      slide.addText(R.title,{x:P(4),y:P(_tbY),w:IN(LWx-8),h:IN(_tbH),fontSize:PT(Math.min(_tbH*0.58,13)),align:'left',valign:'middle',bold:true,color:_contrast(_tbColor),margin:0,wrap:false,fit:'shrink'});
+    }
+  }
 
   // ── SEPARADOR VERTICAL ──
   slide.addShape(line,{x:P(LWx),y:P(R.TH),w:0,h:IN(R.LGH-R.TH),line:{color:_lighten(CH,0.45),width:1}});

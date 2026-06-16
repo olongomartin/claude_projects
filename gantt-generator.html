@@ -3306,22 +3306,35 @@ function render(){
   }
 
   // Mapa predecesora de cada hito (para modo on-pred): {cx=borde dcho pred, cy=centro fila}
-  // Prioridad: 1) dep explícita, 2) tarea no-hito inmediatamente anterior en el listado
+  // Prioridad: 1) dep explícita  2) tarea cuya fecha fin es más próxima (y <= ) a la fecha del hito
   const hitoOnPred = new Map();
   if(HITOS_ON_PRED){
+    // construir lista de tareas visibles con barra renderizada
+    const visWithBar = visTasks.filter(t=>t._bx!=null && t._by!=null);
     hitoTasks.forEach(task=>{
-      // 1) dep explícita
+      // 1) dep explícita → borde derecho de esa barra
       for(const d of (task.dep||[])){
         const g=barGeom[d]||barGeom['__name__'+d];
         if(g){ hitoOnPred.set(task, {cx:g.x1, cy:g.y}); return; }
       }
-      // 2) tarea no-hito inmediatamente anterior en allTasks (la que está encima en el listado)
-      const idx=allTasks.indexOf(task);
-      for(let i=idx-1;i>=0;i--){
-        if(isHitoTipo(allTasks[i])) continue;
-        const t=allTasks[i];
-        const g=barGeom[t.id]||barGeom['__name__'+t.tarea];
-        if(g){ hitoOnPred.set(task, {cx:g.x1, cy:g.y}); break; }
+      // 2) tarea visible cuya fin esté más cerca por debajo de la fecha del hito
+      // Solo tipo 'tarea' para evitar que streams largos ganen siempre
+      const hDate=dmy(task.inicio); if(!hDate) return;
+      let best=null, bestDiff=Infinity;
+      for(const vt of visWithBar){
+        const vtEnd=dmy(vt.fin||vt.inicio); if(!vtEnd) continue;
+        const diff=hDate-vtEnd; // ms positivo = vtEnd está antes del hito
+        if(diff>=0 && diff<bestDiff){
+          // preferir tipo tarea sobre bloque/stream (menos prioridad si hay tarea más cercana)
+          const isTarea=vt.tipo==='tarea';
+          if(!best || diff<bestDiff || (diff===bestDiff && isTarea)){
+            best=vt; bestDiff=diff;
+          }
+        }
+      }
+      if(best){
+        const g=barGeom[best.id]||barGeom['__name__'+best.tarea];
+        if(g) hitoOnPred.set(task, {cx:g.x1, cy:g.y});
       }
     });
   }

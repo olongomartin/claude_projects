@@ -3306,12 +3306,21 @@ function render(){
   }
 
   // Mapa predecesora de cada hito (para modo on-pred): {cx=borde dcho pred, cy=centro fila}
-  // Solo si hay dep explicita; sin dep el hito cae a modo inline
+  // Prioridad: 1) dep explícita, 2) tarea no-hito inmediatamente anterior en el listado
   const hitoOnPred = new Map();
   if(HITOS_ON_PRED){
     hitoTasks.forEach(task=>{
+      // 1) dep explícita
       for(const d of (task.dep||[])){
         const g=barGeom[d]||barGeom['__name__'+d];
+        if(g){ hitoOnPred.set(task, {cx:g.x1, cy:g.y}); return; }
+      }
+      // 2) tarea no-hito inmediatamente anterior en allTasks (la que está encima en el listado)
+      const idx=allTasks.indexOf(task);
+      for(let i=idx-1;i>=0;i--){
+        if(isHitoTipo(allTasks[i])) continue;
+        const t=allTasks[i];
+        const g=barGeom[t.id]||barGeom['__name__'+t.tarea];
         if(g){ hitoOnPred.set(task, {cx:g.x1, cy:g.y}); break; }
       }
     });
@@ -3338,7 +3347,11 @@ function render(){
         mx = pred.cx; // borde derecho de la barra predecesora
         my = pred.cy; // centro vertical de la fila predecesora
       } else {
-        my = Math.max(TP+mr, Math.min(TP+rb*RH, TP+NR*RH-mr));
+        // inline: posición entre fila rb-1 y rb; si el hito está al final, centrar en última fila
+        const rawY = TP + rb*RH;
+        my = rawY >= TP+NR*RH
+          ? TP + (NR-0.5)*RH           // dentro de la última fila visible
+          : Math.max(TP+mr, rawY);
       }
       EDIT_GEOM.push({ taskRef:task, name:task.tarea, tipo:task.tipo, inicio:task.inicio, fin:task.fin,
         x:mx-8, w:16, y:my-RH/2, h:RH, isStream:false, isHito:true, hx:mx });

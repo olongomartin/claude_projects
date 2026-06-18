@@ -1394,20 +1394,40 @@ function setupEditLayer(){
       moveDragTooltip(e);
       return;
     }
-    // Hover cursor feedback
+    // Hover cursor feedback + tooltip
     const {x,y}=evToLogical(e);
     const hit=hitTest(x,y);
     if(hit){
       if(hit.zone==='dep'){
         cv.style.cursor='crosshair';
         showDepHandle(hit.g);
+        hideDragTooltip();
       } else {
         clearDepOverlay();
         cv.style.cursor = hit.zone==='move' ? 'grab' : 'ew-resize';
+        // Show hover tooltip with task name + dates
+        const hidx=findRowIndex(hit.g);
+        if(hidx>=0){
+          const hrow=teRows[hidx];
+          const tt=document.getElementById('drag-tooltip');
+          if(tt){
+            const fmt=s=>s||'–';
+            const dur = (()=>{
+              const s=dmy(hrow.inicio), f=dmy(hrow.fin)||dmy(hrow.inicio);
+              if(!s||!f) return '';
+              const d=Math.round((f-s)/864e5)+1;
+              return ` <span style="opacity:.65">(${d}d)</span>`;
+            })();
+            tt.innerHTML=`<b>${hrow.tarea||'–'}</b><br>▶ ${fmt(hrow.inicio)}&nbsp;→&nbsp;${fmt(hrow.fin)}${dur}`;
+            tt.style.display='block';
+            moveDragTooltip(e);
+          }
+        }
       }
     } else {
       clearDepOverlay();
       cv.style.cursor='default';
+      hideDragTooltip();
     }
   });
 
@@ -1442,7 +1462,7 @@ function setupEditLayer(){
     cv.style.cursor = 'grabbing';
   });
 
-  cv.addEventListener('mouseleave',()=>{ if(!depDragState) clearDepOverlay(); });
+  cv.addEventListener('mouseleave',()=>{ if(!depDragState) clearDepOverlay(); hideDragTooltip(); });
 
   window.addEventListener('mouseup',e=>{
     if(depDragState){

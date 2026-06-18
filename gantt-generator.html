@@ -4137,6 +4137,25 @@ function teSyncFromRaw(){
 }
 
 // Convert teRows → CSV string and put in textarea
+// Sync the plan-shift-date input to the current earliest task start date.
+function syncPlanShiftDate(){
+  const inp = document.getElementById('plan-shift-date'); if(!inp) return;
+  let earliest = null;
+  teRows.forEach(r=>{
+    if(r.tipo==='stream' || r.tipo==='bloque') return;
+    const d = dmy(r.inicio);
+    if(d && (!earliest || d < earliest)) earliest = d;
+  });
+  if(earliest){
+    const y = earliest.getFullYear();
+    const m = String(earliest.getMonth()+1).padStart(2,'0');
+    const d = String(earliest.getDate()).padStart(2,'0');
+    inp.value = `${y}-${m}-${d}`;
+  } else {
+    inp.value = '';
+  }
+}
+
 // Shift all tasks by the delta between a new plan start date and the current earliest task date.
 function applyPlanShift(){
   const inp = document.getElementById('plan-shift-date');
@@ -4169,7 +4188,6 @@ function applyPlanShift(){
     if(r.fin)    r.fin    = shiftDate(r.fin);
   });
 
-  inp.value = ''; // reset field
   teSyncToRaw(); teRender();
   st(`Plan desplazado ${deltaDays > 0 ? '+' : ''}${deltaDays} días.`, 'ok');
 }
@@ -4213,6 +4231,7 @@ function teSyncToRaw(){
   document.getElementById('csv').value = newCsv;
   scheduleSave();
   updateTaskMiniList();
+  syncPlanShiftDate();
   scheduleRender();
 }
 
@@ -4714,6 +4733,7 @@ function _initAll(){
     try{ applyState(JSON.parse(saved)); st('✓ Estado restaurado','ok'); }
     catch(e){ loadExample(); }
   } else { loadExample(); }
+  syncPlanShiftDate();
   // Auto-render the first preview so no button press is needed
   setTimeout(()=>{ try{ render(); }catch(e){} }, 250);
 }

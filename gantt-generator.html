@@ -4121,18 +4121,12 @@ function recalcHierarchy(){
   for(let i=0;i<teRows.length;i++){
     const r=teRows[i];
     if(r.tipo!=='stream' && r.tipo!=='bloque') continue;
-    // Respetar fechas manuales de la fase: si ya tiene inicio y fin válidos,
-    // no las recalculamos a partir de las tareas hijas (evita sobrescribirlas
-    // al añadir/editar tareas). Solo se autocompletan fases sin fechas.
-    if(parse(r.inicio) && parse(r.fin)) continue;
     let minD=null, maxD=null;
     for(let j=i+1;j<teRows.length;j++){
       const c=teRows[j];
-      // Stop when we reach a row at same-or-higher level
       if(r.tipo==='stream' && c.tipo==='stream') break;
       if(r.tipo==='bloque' && (c.tipo==='bloque'||c.tipo==='stream')) break;
-      if(c.tipo==='hito') continue; // hitos are free — don't stretch the parent
-      // Only count tareas / nested bloques with dates
+      if(c.tipo==='hito') continue;
       const cs=parse(c.inicio), ce=parse(c.fin)||parse(c.inicio);
       if(cs && (!minD||cs<minD)) minD=cs;
       if(ce && (!maxD||ce>maxD)) maxD=ce;

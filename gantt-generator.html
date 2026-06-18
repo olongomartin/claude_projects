@@ -4138,23 +4138,27 @@ function teSyncFromRaw(){
 }
 
 // Convert teRows → CSV string and put in textarea
-// Sync the plan-shift-date input to the current earliest task start date.
+// Sync plan-shift-date, plan-start and plan-end to the actual task date range.
 function syncPlanShiftDate(){
-  const inp = document.getElementById('plan-shift-date'); if(!inp) return;
-  let earliest = null;
+  const toISO = d => {
+    if(!d) return '';
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  };
+  let earliest = null, latest = null;
   teRows.forEach(r=>{
     if(r.tipo==='stream' || r.tipo==='bloque') return;
-    const d = dmy(r.inicio);
-    if(d && (!earliest || d < earliest)) earliest = d;
+    const s = dmy(r.inicio), e = dmy(r.fin) || dmy(r.inicio);
+    if(s && (!earliest || s < earliest)) earliest = s;
+    if(e && (!latest  || e > latest))   latest   = e;
   });
-  if(earliest){
-    const y = earliest.getFullYear();
-    const m = String(earliest.getMonth()+1).padStart(2,'0');
-    const d = String(earliest.getDate()).padStart(2,'0');
-    inp.value = `${y}-${m}-${d}`;
-  } else {
-    inp.value = '';
-  }
+  const inpShift = document.getElementById('plan-shift-date');
+  if(inpShift) inpShift.value = toISO(earliest);
+
+  // Only fill axis inputs if they're currently empty (don't override user overrides)
+  const inpS = document.getElementById('plan-start');
+  const inpE = document.getElementById('plan-end');
+  if(inpS && !inpS.value) inpS.value = toISO(earliest);
+  if(inpE && !inpE.value) inpE.value = toISO(latest);
 }
 
 // Shift all tasks by the delta between a new plan start date and the current earliest task date.

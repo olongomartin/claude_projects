@@ -1846,6 +1846,8 @@ function render(){
   canvas.width=PW; canvas.height=PH2;
   const ctx=canvas.getContext('2d');
   ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality='high';
+  ctx.textRendering='geometricPrecision'; // texto más nítido y mejor espaciado
+  ctx.fontKerning='normal';
   ctx.scale(DPR,DPR);
 
   // ── BG ──
@@ -2578,6 +2580,19 @@ function render(){
     }
   });
 
+  // ── ACENTO DE CABECERA + SEPARADOR DE COLUMNA (temas claros) ──
+  // Una hairline de color en la frontera cabecera/gráfico y un separador limpio
+  // de la columna de etiquetas: detalle que da aspecto de plan "diseñado".
+  if(!isDarkTheme && !isArtistico){
+    const accent = isDeloitte ? '#86BC25' : CH;
+    // Línea de acento bajo la cabecera (1.5px nítida)
+    ctx.fillStyle=ha(accent,0.55);
+    ctx.fillRect(0, Math.round(TP)-1, LGW, 1.5);
+    // Separador vertical de la columna de etiquetas (recorre todo el alto del gráfico)
+    ctx.strokeStyle=ha(accent,0.22); ctx.lineWidth=0.75;
+    ctx.beginPath(); ctx.moveTo(L(LW), TP); ctx.lineTo(L(LW), TP+NR*RH+HSH); ctx.stroke();
+  }
+
   // ── HITO STRIP BACKGROUND (solo en modo franja) ──
   if(hitoTasks.length>0 && HITO_POS==='strip'){
     const hsy=TP+NR*RH;
@@ -2651,7 +2666,7 @@ function render(){
     const fsize= lv.isS?FSS  : lv.isB?FSB  : FSTA;
     const fweight = isArtistico
       ? (lv.isS?'bold':lv.isB?'600':'400')
-      : (lv.isS?'bold':lv.isB?'600':'400');
+      : (lv.isS?'bold':lv.isB?'600':'500'); // tarea a 500 = más legible
     const fcolor  = isRetro
       ? (lv.isS?'#00ff41' : lv.isB?'#00cc33' : '#00aa29')
       : isSketch
@@ -3167,18 +3182,24 @@ function render(){
       ctx.fillStyle=qg; rr(ctx,bx,by,bw2,bh,6); ctx.fill();
 
     } else {
-      // ── TRADICIONAL: glass highlight, subtle shadow ──
+      // ── TRADICIONAL: gradiente de profundidad + sheen superior nítido + borde fino ──
       ctx.save();
-      ctx.shadowColor=ha(baseColor,0.26); ctx.shadowBlur=lv.isS?4:lv.isB?3:2; ctx.shadowOffsetY=1.5;
+      ctx.shadowColor=ha(baseColor,0.30); ctx.shadowBlur=lv.isS?5:lv.isB?3.5:2.5; ctx.shadowOffsetY=1.5;
       rr(ctx,bx,by,bw2,bh,barRadius); ctx.fillStyle=baseColor; ctx.fill();
       ctx.restore();
-      rr(ctx,bx,by,bw2,bh,barRadius); ctx.fillStyle=baseColor; ctx.fill();
-      const hlg=ctx.createLinearGradient(bx,by,bx,by+bh);
-      hlg.addColorStop(0,'rgba(255,255,255,0.26)');
-      hlg.addColorStop(0.45,'rgba(255,255,255,0.06)');
-      hlg.addColorStop(1,'rgba(0,0,0,0.04)');
-      ctx.fillStyle=hlg; rr(ctx,bx,by,bw2,bh,barRadius); ctx.fill();
-      ctx.strokeStyle=ha(bw(baseColor,0.22),0.5); ctx.lineWidth=0.5;
+      // Gradiente vertical real: claro arriba → base → ligeramente oscuro abajo (da volumen)
+      const bg2=ctx.createLinearGradient(bx,by,bx,by+bh);
+      bg2.addColorStop(0, bw(baseColor,0.18));
+      bg2.addColorStop(0.5, baseColor);
+      bg2.addColorStop(1, bd(baseColor,0.10));
+      ctx.fillStyle=bg2; rr(ctx,bx,by,bw2,bh,barRadius); ctx.fill();
+      // Sheen superior: línea brillante fina y nítida en el borde de arriba
+      if(bh>5){
+        ctx.fillStyle='rgba(255,255,255,0.32)';
+        rr(ctx,bx+1,by+0.75,bw2-2,Math.max(1,bh*0.16),barRadius*0.6); ctx.fill();
+      }
+      // Borde fino más oscuro para definición de contorno
+      ctx.strokeStyle=ha(bd(baseColor,0.18),0.55); ctx.lineWidth=0.5;
       rr(ctx,bx+0.25,by+0.25,bw2-0.5,bh-0.5,barRadius); ctx.stroke();
     }
   });

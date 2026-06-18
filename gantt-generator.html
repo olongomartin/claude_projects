@@ -4455,21 +4455,47 @@ function teRender(){
     tbody.appendChild(tr);
   });
 
-  // Drag-to-reorder
+  // Drag-to-reorder (group-aware: stream/bloque drag moves its children too)
   let dragSrc=null;
   tbody.querySelectorAll('tr').forEach(tr=>{
-    tr.addEventListener('dragstart',e=>{ dragSrc=+tr.dataset.idx; e.dataTransfer.effectAllowed='move'; });
+    const tdH=tr.querySelector('.td-drag');
+    // Only start drag from the ⠿ handle
+    if(tdH){
+      tdH.addEventListener('mousedown',()=>{ tr.draggable=true; });
+      tdH.addEventListener('mouseleave',()=>{ if(!dragSrc) tr.draggable=false; });
+    }
+    tr.draggable=false;
+    tr.addEventListener('dragstart',e=>{
+      dragSrc=+tr.dataset.idx;
+      e.dataTransfer.effectAllowed='move';
+      tr.style.opacity='0.5';
+    });
     tr.addEventListener('dragover',e=>{ e.preventDefault(); e.dataTransfer.dropEffect='move'; tr.style.borderTop='2px solid var(--ac)'; });
     tr.addEventListener('dragleave',()=>{ tr.style.borderTop=''; });
     tr.addEventListener('drop',e=>{
       e.preventDefault(); tr.style.borderTop='';
       const dest=+tr.dataset.idx;
-      if(dragSrc===dest||dragSrc==null) return;
-      const moved=teRows.splice(dragSrc,1)[0];
-      teRows.splice(dest,0,moved);
+      if(dragSrc==null || dragSrc===dest) return;
+      // Compute group range [dragSrc, groupEnd) — stream/bloque carries its children
+      const src=teRows[dragSrc];
+      let groupEnd=dragSrc+1;
+      if(src.tipo==='stream'){
+        while(groupEnd<teRows.length && teRows[groupEnd].tipo!=='stream') groupEnd++;
+      } else if(src.tipo==='bloque'){
+        while(groupEnd<teRows.length && teRows[groupEnd].tipo!=='bloque' && teRows[groupEnd].tipo!=='stream') groupEnd++;
+      }
+      // Can't drop onto own children
+      if(dest>dragSrc && dest<groupEnd){ dragSrc=null; return; }
+      const group=teRows.splice(dragSrc, groupEnd-dragSrc);
+      const insertAt=Math.max(0, dest>dragSrc ? dest-group.length : dest);
+      teRows.splice(insertAt,0,...group);
       dragSrc=null; teSyncToRaw(); teRender();
     });
-    tr.addEventListener('dragend',()=>{ tbody.querySelectorAll('tr').forEach(r=>r.style.borderTop=''); });
+    tr.addEventListener('dragend',()=>{
+      tr.draggable=false; tr.style.opacity='';
+      dragSrc=null;
+      tbody.querySelectorAll('tr').forEach(r=>r.style.borderTop='');
+    });
   });
 }
 

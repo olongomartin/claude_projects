@@ -4134,6 +4134,7 @@ function teSyncFromRaw(){
   }));
   recalcHierarchy(); // correct stream/bloque dates from children on load
   teRender(); scheduleSave();
+  syncPlanShiftDate();
 }
 
 // Convert teRows → CSV string and put in textarea
@@ -4733,7 +4734,6 @@ function _initAll(){
     try{ applyState(JSON.parse(saved)); st('✓ Estado restaurado','ok'); }
     catch(e){ loadExample(); }
   } else { loadExample(); }
-  syncPlanShiftDate();
   // Auto-render the first preview so no button press is needed
   setTimeout(()=>{ try{ render(); }catch(e){} }, 250);
 }

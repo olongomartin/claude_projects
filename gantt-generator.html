@@ -1678,7 +1678,7 @@ function render(){
   const isMonocromo   = currentLayout === 'monocromo';
   const isQuarterly   = currentLayout === 'quarterly';
   // Per-layout visual properties
-  const barRadius    = (isMinimal||isC1||isChevron||isSwimlane||isDeloitte||isRetro||isSketch||isAmber||isStarWars) ? 0 : isLOTR ? 4 : isCobalt ? 2 : isQuarterly ? 6 : isPhaseGate ? 1 : isArtistico ? 8 : isTesla ? 1 : isRolex ? 3 : isDarkTheme ? 2 : 2;
+  const barRadius    = (isMinimal||isC1||isChevron||isSwimlane||isDeloitte||isRetro||isSketch||isAmber||isStarWars) ? 0 : isLOTR ? 4 : isCobalt ? 3 : isQuarterly ? 6 : isPhaseGate ? 1 : isArtistico ? 8 : isTesla ? 1 : isRolex ? 3 : isDarkTheme ? 3 : 5;
   const useGradient  = !isMinimal && !isModernoB && !isC1 && !isChevron && !isSwimlane && !isEjecutivo && !isDeloitte && !isMonocromo && !isPhaseGate;
   const useShadow    = !isMinimal && !isC1 && !isChevron && !isMonocromo;
   // Row height ratios per layout
@@ -2252,7 +2252,10 @@ function render(){
     ctx.fillStyle=isArtistico?'rgba(248,232,170,0.95)':isMinimal?(yi%2===0?'#fff':CH):'#ffffff';
     ctx.font=isArtistico?`italic bold ${FSEJE+2}px ${FF_E}`:`bold ${FSEJE+2}px ${FF_E}`;
     ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.fillText(yg.label,LW+(yg.x0+yg.x1)/2,TH+YH/2); yi++;
+    if(!isArtistico && !isMinimal) ctx.letterSpacing='2px';
+    ctx.fillText(yg.label,LW+(yg.x0+yg.x1)/2,TH+YH/2);
+    ctx.letterSpacing='0px';
+    yi++;
   });
   }
 
@@ -3182,25 +3185,35 @@ function render(){
       ctx.fillStyle=qg; rr(ctx,bx,by,bw2,bh,6); ctx.fill();
 
     } else {
-      // ── TRADICIONAL: gradiente de profundidad + sheen superior nítido + borde fino ──
+      // ── TRADICIONAL: cápsula con gradiente de profundidad, sheen nítido y sombra elegante ──
+      const br = lv.isT ? Math.min(barRadius, bh/2) : barRadius; // tarea: fully capsule if small
       ctx.save();
-      ctx.shadowColor=ha(baseColor,0.30); ctx.shadowBlur=lv.isS?5:lv.isB?3.5:2.5; ctx.shadowOffsetY=1.5;
-      rr(ctx,bx,by,bw2,bh,barRadius); ctx.fillStyle=baseColor; ctx.fill();
+      ctx.shadowColor=ha(baseColor, lv.isS?0.38:lv.isB?0.28:0.22);
+      ctx.shadowBlur=lv.isS?8:lv.isB?5:3.5; ctx.shadowOffsetY=lv.isS?2:1.5;
+      rr(ctx,bx,by,bw2,bh,br); ctx.fillStyle=baseColor; ctx.fill();
       ctx.restore();
-      // Gradiente vertical real: claro arriba → base → ligeramente oscuro abajo (da volumen)
+      // Gradiente vertical: claro arriba → base → oscuro abajo
       const bg2=ctx.createLinearGradient(bx,by,bx,by+bh);
-      bg2.addColorStop(0, bw(baseColor,0.18));
-      bg2.addColorStop(0.5, baseColor);
-      bg2.addColorStop(1, bd(baseColor,0.10));
-      ctx.fillStyle=bg2; rr(ctx,bx,by,bw2,bh,barRadius); ctx.fill();
-      // Sheen superior: línea brillante fina y nítida en el borde de arriba
+      bg2.addColorStop(0, bw(baseColor,0.22));
+      bg2.addColorStop(0.45, baseColor);
+      bg2.addColorStop(1, bd(baseColor,0.14));
+      ctx.fillStyle=bg2; rr(ctx,bx,by,bw2,bh,br); ctx.fill();
+      // Sheen: franja brillante en el tercio superior, más definida
       if(bh>5){
-        ctx.fillStyle='rgba(255,255,255,0.32)';
-        rr(ctx,bx+1,by+0.75,bw2-2,Math.max(1,bh*0.16),barRadius*0.6); ctx.fill();
+        const sheenH=Math.max(1.2, bh*0.18);
+        const sg=ctx.createLinearGradient(bx,by+0.75,bx,by+0.75+sheenH);
+        sg.addColorStop(0,'rgba(255,255,255,0.42)'); sg.addColorStop(1,'rgba(255,255,255,0.0)');
+        ctx.fillStyle=sg;
+        rr(ctx,bx+1,by+0.75,bw2-2,sheenH,br*0.5); ctx.fill();
       }
-      // Borde fino más oscuro para definición de contorno
-      ctx.strokeStyle=ha(bd(baseColor,0.18),0.55); ctx.lineWidth=0.5;
-      rr(ctx,bx+0.25,by+0.25,bw2-0.5,bh-0.5,barRadius); ctx.stroke();
+      // Cap izquierdo accent (más brillante) en streams para dar sensación de inicio fuerte
+      if(lv.isS && bw2>12){
+        ctx.fillStyle=bw(baseColor,0.30);
+        rr(ctx,bx,by,Math.min(6,bw2*0.08),bh,br); ctx.fill();
+      }
+      // Borde de contorno suave
+      ctx.strokeStyle=ha(bd(baseColor,0.22),0.45); ctx.lineWidth=0.5;
+      rr(ctx,bx+0.25,by+0.25,bw2-0.5,bh-0.5,br); ctx.stroke();
     }
   });
 
@@ -3209,11 +3222,19 @@ function render(){
     visTasks.forEach(task=>{
       if(task.avance==null || task._bx==null || task._isStreamBar) return; // skip streams
       const fillW=task._bw*(task.avance/100);
-      // darker progress band inside the bar
       ctx.save();
       const isDk = isDarkTheme||isAmber||isTesla||isRolex||isRetro;
-      ctx.fillStyle = isDk ? 'rgba(255,255,255,0.38)' : 'rgba(0,0,0,0.30)';
-      rr(ctx, task._bx, task._by+task._bh*0.62, fillW, task._bh*0.30, 1); ctx.fill();
+      // progress band: horizontal gradient (bright left → dim right) + tapered rounded tip
+      if(fillW > 2){
+        const pg=ctx.createLinearGradient(task._bx, 0, task._bx+fillW, 0);
+        pg.addColorStop(0, isDk?'rgba(255,255,255,0.55)':'rgba(0,0,0,0.45)');
+        pg.addColorStop(0.7, isDk?'rgba(255,255,255,0.35)':'rgba(0,0,0,0.28)');
+        pg.addColorStop(1, isDk?'rgba(255,255,255,0.10)':'rgba(0,0,0,0.08)');
+        ctx.fillStyle=pg;
+        const ph=task._bh*0.28, py=task._by+task._bh*0.64;
+        const pr=Math.min(ph/2, 2);
+        rr(ctx, task._bx+1, py, Math.max(fillW-2, 1), ph, pr); ctx.fill();
+      }
       ctx.restore();
       // % label if bar wide enough
       if(task._bw>34){
@@ -3281,7 +3302,7 @@ function render(){
   function drawHitoShape(cx, cy, r, color, shape){
     ctx.save();
     ctx.fillStyle=color;
-    ctx.strokeStyle='rgba(0,0,0,0.25)'; ctx.lineWidth=0.5;
+    ctx.strokeStyle='rgba(255,255,255,0.30)'; ctx.lineWidth=0.75;
     switch(shape){
       case 'circle':
         ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.fill(); ctx.stroke(); break;
@@ -3306,7 +3327,16 @@ function render(){
         ctx.beginPath(); ctx.moveTo(cx,cy-r); ctx.lineTo(cx+r*1.1,cy-r*0.5); ctx.lineTo(cx,cy); ctx.closePath(); ctx.fill(); break;
       default: // diamond
         ctx.save(); ctx.translate(cx,cy); ctx.rotate(Math.PI/4);
-        rr(ctx,-r,-r,r*2,r*2,1.5); ctx.fill(); ctx.restore(); break;
+        rr(ctx,-r,-r,r*2,r*2,1.5); ctx.fill();
+        // inner highlight edge
+        ctx.strokeStyle='rgba(255,255,255,0.35)'; ctx.lineWidth=0.75;
+        rr(ctx,-r+0.75,-r+0.75,r*2-1.5,r*2-1.5,1.2); ctx.stroke();
+        ctx.restore(); break;
+    }
+    // specular dot: top-left highlight for 3D jewel feel
+    if(r>4){
+      ctx.fillStyle='rgba(255,255,255,0.55)';
+      ctx.beginPath(); ctx.arc(cx-r*0.28, cy-r*0.28, r*0.22, 0, Math.PI*2); ctx.fill();
     }
     ctx.restore();
   }
@@ -3363,20 +3393,30 @@ function render(){
       }
       EDIT_GEOM.push({ taskRef:task, name:task.tarea, tipo:task.tipo, inicio:task.inicio, fin:task.fin,
         x:mx-8, w:16, y:my-RH/2, h:RH, isStream:false, isHito:true, hx:mx });
+      // outer glow ring
       ctx.save();
-      ctx.shadowColor=ha(baseColor,0.35); ctx.shadowBlur=3; ctx.shadowOffsetY=1;
+      ctx.beginPath(); ctx.arc(mx, my, mr+3.5, 0, Math.PI*2);
+      ctx.fillStyle=ha(baseColor, 0.18); ctx.fill();
+      ctx.restore();
+      // marker with stronger shadow
+      ctx.save();
+      ctx.shadowColor=ha(baseColor,0.55); ctx.shadowBlur=7; ctx.shadowOffsetY=1.5;
       drawHitoShape(mx, my, mr, baseColor, HITO_SHAPE);
       ctx.restore();
-      // label compacto al lado, con "pill" translúcido
+      // label compacto al lado — pill con borde sutil
       if(task.tarea){
         ctx.font=`600 ${Math.max(5,FSH*0.92)}px ${FF_H}`;
         ctx.textBaseline='middle';
-        const lbl=task.tarea, tw=ctx.measureText(lbl).width, padX=3, ph=Math.max(9,FSH+2);
-        let lx=mx+mr+4, align='left';
-        if(lx+tw+padX*2>LGW){ align='right'; lx=mx-mr-4; }
-        ctx.fillStyle=isDarkTheme?'rgba(0,0,0,0.55)':'rgba(255,255,255,0.78)';
+        const lbl=task.tarea, tw=ctx.measureText(lbl).width, padX=4, ph=Math.max(10,FSH+3);
+        let lx=mx+mr+5, align='left';
+        if(lx+tw+padX*2>LGW){ align='right'; lx=mx-mr-5; }
         const bxp = align==='left' ? lx-padX : lx-tw-padX;
-        rr(ctx,bxp,my-ph/2,tw+padX*2,ph,2); ctx.fill();
+        // pill background
+        ctx.fillStyle=isDarkTheme?'rgba(0,0,0,0.65)':'rgba(255,255,255,0.88)';
+        rr(ctx,bxp,my-ph/2,tw+padX*2,ph,ph/2); ctx.fill();
+        // pill border in bar color
+        ctx.strokeStyle=ha(baseColor,0.45); ctx.lineWidth=0.75;
+        rr(ctx,bxp,my-ph/2,tw+padX*2,ph,ph/2); ctx.stroke();
         ctx.fillStyle=FC_H||(isDarkTheme?'#ffffff':'#1a1a1a');
         ctx.textAlign=align; ctx.fillText(lbl,lx,my);
         ctx.textAlign='left';
@@ -3443,8 +3483,13 @@ function render(){
       ctx.restore();
     } else {
       const mr=Math.min(dZH*0.36,7);
+      // outer glow
       ctx.save();
-      ctx.shadowColor=ha(baseColor,0.30); ctx.shadowBlur=3; ctx.shadowOffsetY=1;
+      ctx.beginPath(); ctx.arc(hx, myc, mr+3, 0, Math.PI*2);
+      ctx.fillStyle=ha(baseColor, 0.18); ctx.fill();
+      ctx.restore();
+      ctx.save();
+      ctx.shadowColor=ha(baseColor,0.50); ctx.shadowBlur=6; ctx.shadowOffsetY=1;
       drawHitoShape(hx, myc, mr, baseColor, HITO_SHAPE);
       ctx.restore();
     }
@@ -3570,6 +3615,13 @@ function render(){
     if(isMinimal){
       ctx.strokeStyle=CH; ctx.lineWidth=2.5;
       ctx.beginPath(); ctx.moveTo(LW,TP); ctx.lineTo(LGW,TP); ctx.stroke();
+    }
+    // inner bottom vignette — depth illusion as chart recedes
+    if(!isDarkTheme && !isArtistico && !isMinimal && !isModerno2){
+      const chartBottom=TP+NR*RH+HSH;
+      const vg=ctx.createLinearGradient(0,chartBottom-18,0,chartBottom);
+      vg.addColorStop(0,'rgba(0,0,0,0)'); vg.addColorStop(1,'rgba(0,0,0,0.045)');
+      ctx.fillStyle=vg; ctx.fillRect(LW,chartBottom-18,LGW-LW,18);
     }
   }
 
